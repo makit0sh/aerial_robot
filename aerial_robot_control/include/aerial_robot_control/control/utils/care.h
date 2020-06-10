@@ -33,7 +33,7 @@
  *  POSSIBILITY OF SUCH DAMAGE.
  *********************************************************************/
 
-#pragma
+#pragma once
 
 #include <Eigen/Dense>
 #include <Eigen/Eigenvalues>
