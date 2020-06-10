@@ -8,6 +8,7 @@
 #include <map>
 #include <vector>
 #include <kdl/rotationalinertia.hpp>
+#include <kdl/tree.hpp>
 
 namespace aerial_robot_model {
 
@@ -112,6 +113,72 @@ namespace aerial_robot_model {
                                                     [](const KDL::Vector& in)->tf2::Vector3 {
                                                       return kdlToTf2(in);
                                                     });
+  }
+
+  inline bool addTreeRecursive(KDL::SegmentMap::const_iterator root, const std::string& hook_name, KDL::Tree& tree, const std::string& skip_segments_root="") {
+      //const KDL::SegmentMap& skipped_segments=KDL::SegmentMap()) {
+    //get iterator for root-segment
+    KDL::SegmentMap::const_iterator child;
+    //try to add all of root's children
+    for (unsigned int i = 0; i < (root->second).children.size(); i++) {
+      child = (root->second).children[i];
+      if (skip_segments_root!="" && child->first == skip_segments_root) continue;
+      //Try to add the child
+      if (tree.addSegment((child->second).segment, hook_name)) {
+        //if child is added, add all the child's children
+        if (!(addTreeRecursive(child, child->first, tree, skip_segments_root)))
+          //if it didn't work, return false
+          return false;
+      } else
+        //If the child could not be added, return false
+        return false;
+    }
+    return true;
+  }
+
+  /**
+   * Extract a tree having segment_name as root. Only child segments of
+   * segment_name are added to the new tree.
+   *
+   * @param segment_name the name of the segment to be used as root
+   * of the new tree
+   * @param tree_origin the original tree to exctract sub-tree from
+   *
+   * @return subtree the resulting sub-tree
+   */
+  inline KDL::Tree getSubTree(const std::string& segment_name, const KDL::Tree& tree_origin)
+  {
+    KDL::Tree subtree;
+    const KDL::SegmentMap& segments = tree_origin.getSegments();
+    //check if segment_name exists
+    KDL::SegmentMap::const_iterator root = segments.find(segment_name);
+    if (root == segments.end())
+      return subtree;
+    //init the subtree, segment_name is the new root.
+    subtree = KDL::Tree(root->first);
+
+    addTreeRecursive(root, segment_name, subtree);
+    return subtree;
+  }
+
+  /**
+   * Remove a sub-tree having segment_name as root from tree_origin.
+   *
+   * @param segment_name the name of the segment to be used as root
+   * of the removed sub-tree
+   * @param tree_origin the original tree to remove sub-tree from
+   *
+   * @return tree_trimed the resulting tree
+   */
+  inline KDL::Tree removeSegmentsFrom(const std::string& segment_name, const KDL::Tree& tree_origin)
+  {
+    KDL::Tree tree_trimed;
+    std::string origin_root_name = tree_origin.getRootSegment()->first;
+    if (segment_name == origin_root_name) return tree_trimed; // can not remove root segment
+    if (tree_origin.getSegments().find(segment_name) == tree_origin.getSegments().end()) return tree_trimed; // can not remove non existent segment
+    tree_trimed = KDL::Tree(tree_origin.getRootSegment()->first);
+    addTreeRecursive(tree_origin.getSegments().find(origin_root_name), origin_root_name, tree_trimed, segment_name);
+    return tree_trimed;
   }
 
 } //namespace aerial_robot_model

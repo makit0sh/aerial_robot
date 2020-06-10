@@ -3,7 +3,7 @@
     xmlns:xacro="http://www.ros.org/wiki/xacro" name="hydrus_link" >
 
   <!-- D-H kai description(different from prof.nakamura) -->
-  <xacro:macro name="hydrus_link" params="links self rotor_direction with_leg:=1 with_battery:=1 old_version:=0 tilt_mode:=0 tilt_angle:=0">
+  <xacro:macro name="hydrus_link" params="links self rotor_direction with_leg:=1 with_battery:=1 old_version:=0 tilt_mode:=0 tilt_angle:=0 vibrate:=0">
 
     <xacro:if value="${old_version == 1}">
       <!-- link -->
@@ -250,11 +250,59 @@
 
     <!-- joint -->
     <xacro:unless value="${self == links}">
+
+      <xacro:if value="${vibrate == 1}">
+        <link name="torsion_dummy${self}_r">
+          <inertial>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="0.001"/>
+            <inertia
+                ixx="0.0001" ixy="0.0" ixz="0.0"
+                iyy="0.0001" iyz="0.0"
+                izz="0.0002"/>
+          </inertial>
+        </link>
+        <joint name="torsion${self}_r" type="revolute">
+          <limit effort="10000.0" lower="${-pi/6}" upper="${pi/6}" velocity="1"/>
+          <parent link="link${self}"/>
+          <child link="torsion_dummy${self}_r"/>
+          <origin rpy="0 0 0" xyz="${link_length} 0 0"/>
+          <axis xyz="1 0 0"/>
+          <dynamics damping="0.9" friction="0.05"/>
+        </joint>
+        <!-- <link name="torsion_dummy${self}_l"> -->
+        <!--   <inertial> -->
+        <!--     <origin xyz="0 0 0" rpy="0 0 0"/> -->
+        <!--     <mass value="0.001"/> -->
+        <!--     <inertia -->
+        <!--         ixx="0.0001" ixy="0.0" ixz="0.0" -->
+        <!--         iyy="0.0001" iyz="0.0" -->
+        <!--         izz="0.0002"/> -->
+        <!--   </inertial> -->
+        <!-- </link> -->
+        <!-- <joint name="torsion${self}_l" type="revolute"> -->
+        <!--   <limit effort="10000.0" lower="${-pi/6}" upper="${pi/6}" velocity="1"/> -->
+        <!--   <parent link="torsion_dummy${self}_l"/> -->
+        <!--   <child link="link${self+1}"/> -->
+        <!--   <origin rpy="0 0 0" xyz="0 0 0"/> -->
+        <!--   <axis xyz="1 0 0"/> -->
+        <!--   <dynamics damping="0.9" friction="0.05"/> -->
+        <!-- </joint> -->
+      </xacro:if>
+
       <joint name="joint${self}" type="revolute">
         <limit effort="10.0" lower="${-pi/2}" upper="${pi/2}" velocity="0.5"/>
-        <parent link="link${self}"/>
-        <child link="link${self+1}"/>
-        <origin rpy="0 0 0" xyz="${link_length} 0 0"/>
+        <xacro:unless value="${vibrate == 1}">
+          <parent link="link${self}"/>
+          <child link="link${self+1}"/>
+          <origin rpy="0 0 0" xyz="${link_length} 0 0"/>
+        </xacro:unless>
+        <xacro:if value="${vibrate == 1}">
+          <parent link="torsion_dummy${self}_r"/>
+          <child link="link${self+1}"/>
+          <!-- <child link="torsion_dummy${self}_l"/> -->
+          <origin rpy="0 0 0" xyz="0 0 0"/>
+        </xacro:if>
         <axis xyz="0 0 1"/>
         <dynamics damping="0.9" friction="0.05"/>
       </joint>

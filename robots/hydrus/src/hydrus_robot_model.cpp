@@ -219,6 +219,77 @@ bool HydrusRobotModel::wrenchMatrixDeterminantCheck()
   return true;
 }
 
+KDL::RigidBodyInertia HydrusRobotModel::getHalfRotInertiaAroundLink(int axis_link_idx, bool is_front)
+{
+  /*
+  const std::string axis_link_name = "link"+std::to_string(axis_link_idx);
+  const KDL::Frame axis_link_f{getSegmentsTf().at(axis_link_name)};
+  std::string root;
+  if (is_front == true) {
+    root = getTree().getRootSegment()->first;
+  } else {
+    root = axis_link_name;
+  }
+  KDL::Tree subtree;
+  if (is_front == true) {
+    subtree = aerial_robot_model::removeSegmentsFrom(axis_link_name, getTree());
+  } else {
+    subtree = aerial_robot_model::getSubTree(axis_link_name, getTree());
+  }
+
+  //ROS_INFO_STREAM( "half links segments size: " << subtree.getSegments().size());
+  KDL::RigidBodyInertia result_inertia = KDL::RigidBodyInertia::Zero();
+  for (auto const& element : subtree.getSegments()) {
+    //ROS_INFO_STREAM("half links segment names: " << element.first);
+    // TODO temporary hardcoding, the whole process to extract subtree became unnecessary in this version??
+    if ((int)element.first.find("link") == 0) {
+      const KDL::Frame link_f(getSegmentsTf().at(element.first));
+      const KDL::RigidBodyInertia link_inertia(getInertiaMap().at(element.first));
+      KDL::RigidBodyInertia link_inertia_from_axis = axis_link_f * (link_f * link_inertia);
+      result_inertia = result_inertia + link_inertia_from_axis;
+    }
+  }
+  */
+
+  int start_link_idx=1;
+  int end_link_idx=getRotorNum();
+  if (is_front == true) {
+    //ROS_ERROR("front");
+    end_link_idx=axis_link_idx;
+  } else {
+    //ROS_ERROR("back");
+    start_link_idx = axis_link_idx;
+  }
+  //ROS_ERROR_STREAM("axis link" << axis_link_idx);
+  const std::string axis_link_name = "link"+std::to_string(axis_link_idx);
+  const KDL::Frame axis_link_f{getSegmentsTf().at(axis_link_name)};
+
+  KDL::RigidBodyInertia result_inertia = KDL::RigidBodyInertia::Zero();
+  for (int i = start_link_idx; i <= end_link_idx; ++i) {
+    //ROS_ERROR_STREAM("link" << i);
+    const KDL::Frame link_f(getSegmentsTf().at("link"+std::to_string(i)));
+    const KDL::RigidBodyInertia link_inertia(getInertiaMap().at("link"+std::to_string(i)));
+    // TODO wrong?
+    //KDL::RigidBodyInertia link_inertia_from_axis = axis_link_f * (link_f * link_inertia);
+    KDL::RigidBodyInertia link_inertia_from_axis = axis_link_f * ( link_inertia);
+    result_inertia = result_inertia + link_inertia_from_axis;
+  }
+  return result_inertia;
+}
+
+double HydrusRobotModel::getTorsionalMomentArmLength(int axis_link_idx, int motor_idx)
+{
+  std::pair<int, int> key=std::make_pair(motor_idx, axis_link_idx);
+  double result=0;
+  const KDL::Frame thrust_frame(getSegmentsTf().at("thrust"+std::to_string(motor_idx)));
+  const KDL::Frame link_frame(getSegmentsTf().at("link"+std::to_string(axis_link_idx)));
+  KDL::Vector x_unit(1.0, 0.0, 0.0);
+  KDL::Frame thrust_from_link = link_frame.Inverse() * thrust_frame;
+  double projection2link_length = KDL::dot( thrust_from_link.p , x_unit);
+  result = sqrt(thrust_from_link.p.Norm()*thrust_from_link.p.Norm() - projection2link_length*projection2link_length);
+  return result;
+}
+
 /* plugin registration */
 #include <pluginlib/class_list_macros.h>
 PLUGINLIB_EXPORT_CLASS(HydrusRobotModel, aerial_robot_model::RobotModel);
