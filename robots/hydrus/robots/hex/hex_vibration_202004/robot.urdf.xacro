@@ -4,25 +4,28 @@
 
   <xacro:arg name="sim" default="false"/>
 
+  <xacro:arg name="tilt_mode" default="1"/>
+  <xacro:arg name="tilt_angle" default="20"/>
+
   <!-- basic kinematics model -->
   <xacro:include filename="$(find hydrus)/urdf/common.xacro" />
   <xacro:include filename="$(find hydrus)/urdf/link.urdf.xacro" />
 
   <xacro:if value="$(arg sim)">
-    <xacro:hydrus_link links="6" self="1" rotor_direction="-1" with_battery = "1"  vibrate = "1"/>
-    <xacro:hydrus_link links="6" self="2" rotor_direction="1"  with_battery = "1"  vibrate = "1"/>
-    <xacro:hydrus_link links="6" self="3" rotor_direction="-1" with_battery = "1"  vibrate = "1"/>
-    <xacro:hydrus_link links="6" self="4" rotor_direction="1"  with_battery = "1"  vibrate = "1"/>
-    <xacro:hydrus_link links="6" self="5" rotor_direction="-1" with_battery = "1"  vibrate = "1"/>
-    <xacro:hydrus_link links="6" self="6" rotor_direction="1"  with_battery = "1"  vibrate = "0"/>
+    <xacro:hydrus_link links="6" self="1" rotor_direction="-1" with_battery = "1"  vibrate = "1" tilt_mode="$(arg tilt_mode)" tilt_angle="$(arg tilt_angle)"/>
+    <xacro:hydrus_link links="6" self="2" rotor_direction="1"  with_battery = "1"  vibrate = "1" tilt_mode="$(arg tilt_mode)" tilt_angle="$(arg tilt_angle)"/>
+    <xacro:hydrus_link links="6" self="3" rotor_direction="-1" with_battery = "1"  vibrate = "1" tilt_mode="$(arg tilt_mode)" tilt_angle="$(arg tilt_angle)"/>
+    <xacro:hydrus_link links="6" self="4" rotor_direction="1"  with_battery = "1"  vibrate = "1" tilt_mode="$(arg tilt_mode)" tilt_angle="$(arg tilt_angle)"/>
+    <xacro:hydrus_link links="6" self="5" rotor_direction="-1" with_battery = "1"  vibrate = "1" tilt_mode="$(arg tilt_mode)" tilt_angle="$(arg tilt_angle)"/>
+    <xacro:hydrus_link links="6" self="6" rotor_direction="1"  with_battery = "1"  vibrate = "0" tilt_mode="$(arg tilt_mode)" tilt_angle="$(arg tilt_angle)"/>
   </xacro:if>
   <xacro:unless value="$(arg sim)">
-    <xacro:hydrus_link links="6" self="1" rotor_direction="-1" with_battery = "1" />
-    <xacro:hydrus_link links="6" self="2" rotor_direction="1"  with_battery = "1" />
-    <xacro:hydrus_link links="6" self="3" rotor_direction="-1" with_battery = "1" />
-    <xacro:hydrus_link links="6" self="4" rotor_direction="1"  with_battery = "1" />
-    <xacro:hydrus_link links="6" self="5" rotor_direction="-1" with_battery = "1" />
-    <xacro:hydrus_link links="6" self="6" rotor_direction="1"  with_battery = "1" />
+    <xacro:hydrus_link links="6" self="1" rotor_direction="-1" with_battery = "1" tilt_mode="$(arg tilt_mode)" tilt_angle="$(arg tilt_angle)"/>
+    <xacro:hydrus_link links="6" self="2" rotor_direction="1"  with_battery = "1" tilt_mode="$(arg tilt_mode)" tilt_angle="$(arg tilt_angle)"/>
+    <xacro:hydrus_link links="6" self="3" rotor_direction="-1" with_battery = "1" tilt_mode="$(arg tilt_mode)" tilt_angle="$(arg tilt_angle)"/>
+    <xacro:hydrus_link links="6" self="4" rotor_direction="1"  with_battery = "1" tilt_mode="$(arg tilt_mode)" tilt_angle="$(arg tilt_angle)"/>
+    <xacro:hydrus_link links="6" self="5" rotor_direction="-1" with_battery = "1" tilt_mode="$(arg tilt_mode)" tilt_angle="$(arg tilt_angle)"/>
+    <xacro:hydrus_link links="6" self="6" rotor_direction="1"  with_battery = "1" tilt_mode="$(arg tilt_mode)" tilt_angle="$(arg tilt_angle)"/>
   </xacro:unless>
 
   <!-- special battery arrangement -->

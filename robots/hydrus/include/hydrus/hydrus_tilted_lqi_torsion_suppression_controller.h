@@ -35,7 +35,7 @@
 
 #pragma once
 
-#include <hydrus/hydrus_lqi_controller.h>
+#include <hydrus/hydrus_tilted_lqi_controller.h>
 #include <dynamic_reconfigure/server.h>
 #include <hydrus/LQI_torsionConfig.h>
 #include <sensor_msgs/JointState.h>
@@ -49,11 +49,11 @@
 
 namespace aerial_robot_control
 {
-  class HydrusLQITorsionSuppressionController: public HydrusLQIController
+  class HydrusTiltedLQITorsionSuppressionController: public HydrusLQIController
   {
   public:
-    HydrusLQITorsionSuppressionController() {}
-    ~HydrusLQITorsionSuppressionController();
+    HydrusTiltedLQITorsionSuppressionController() {}
+    ~HydrusTiltedLQITorsionSuppressionController();
 
     void initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
                     boost::shared_ptr<aerial_robot_model::RobotModel> robot_model,
@@ -66,6 +66,11 @@ namespace aerial_robot_control
     bool optimalGain() override;
     void publishGain() override;
     void rosParamInit() override;
+
+    ros::Publisher desired_baselink_rot_pub_;
+
+    double trans_constraint_weight_;
+    double att_control_weight_;
 
     //double torsional_spring_constant_;
     double torsional_spring_constant_;

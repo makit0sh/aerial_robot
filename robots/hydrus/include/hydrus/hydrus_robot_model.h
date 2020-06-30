@@ -75,8 +75,8 @@ public:
 
   bool wrenchMatrixDeterminantCheck(); // deprecated
 
-  double getTorsionalMomentArmLength(int motor_idx, int axis_link_idx);
-  KDL::RigidBodyInertia getHalfRotInertiaAroundLink(int axis_link_idx, bool is_front);
+  // double getTorsionalMomentArmLength(int motor_idx, int axis_link_idx);
+  // KDL::RigidBodyInertia getHalfRotInertiaAroundLink(int axis_link_idx, bool is_front);
 
 private:
 

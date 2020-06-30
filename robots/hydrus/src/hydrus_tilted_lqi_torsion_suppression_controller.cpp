@@ -1,8 +1,8 @@
-#include <hydrus/hydrus_lqi_torsion_suppression_controller.h>
+#include <hydrus/hydrus_tilted_lqi_torsion_suppression_controller.h>
 
 using namespace aerial_robot_control;
 
-void HydrusLQITorsionSuppressionController::initialize(ros::NodeHandle nh,
+void HydrusTiltedLQITorsionSuppressionController::initialize(ros::NodeHandle nh,
                                            ros::NodeHandle nhp,
                                            boost::shared_ptr<aerial_robot_model::RobotModel> robot_model,
                                            boost::shared_ptr<aerial_robot_estimation::StateEstimator> estimator,
@@ -11,32 +11,69 @@ void HydrusLQITorsionSuppressionController::initialize(ros::NodeHandle nh,
 {
   HydrusLQIController::initialize(nh, nhp, robot_model, estimator, navigator, ctrl_loop_rate);
 
-  rosParamInit();
+  desired_baselink_rot_pub_ = nh_.advertise<spinal::DesireCoord>("desire_coordinate", 1);
+
+  pid_msg_.z.p_term.resize(1);
+  pid_msg_.z.i_term.resize(1);
+  pid_msg_.z.d_term.resize(1);
+
+  //rosParamInit();
   q_mu_p_gains_.resize(torsion_num_);
   q_mu_d_gains_.resize(torsion_num_);
   torsions_.resize(torsion_num_);
   torsions_d_.resize(torsion_num_);
 
-  link_torsion_sub_ = nh_.subscribe<sensor_msgs::JointState>("link_torsion/joint_states", 1, &HydrusLQITorsionSuppressionController::linkTorsionCallback, this, ros::TransportHints().tcpNoDelay());
+  link_torsion_sub_ = nh_.subscribe<sensor_msgs::JointState>("link_torsion/joint_states", 1, &HydrusTiltedLQITorsionSuppressionController::linkTorsionCallback, this, ros::TransportHints().tcpNoDelay());
 
   //dynamic reconfigure server
   ros::NodeHandle control_nh(nh_, "controller");
   ros::NodeHandle cfgTorsion_nh(control_nh, "lqi_torsion");
   lqi_torsion_server_ = new dynamic_reconfigure::Server<hydrus::LQI_torsionConfig>(cfgTorsion_nh);
-  dynamic_reconf_func_lqi_torsion_ = boost::bind(&HydrusLQITorsionSuppressionController::cfgLQITorsionCallback, this, _1, _2);
+  dynamic_reconf_func_lqi_torsion_ = boost::bind(&HydrusTiltedLQITorsionSuppressionController::cfgLQITorsionCallback, this, _1, _2);
   lqi_torsion_server_->setCallback(dynamic_reconf_func_lqi_torsion_);
 }
 
-HydrusLQITorsionSuppressionController::~HydrusLQITorsionSuppressionController()
+HydrusTiltedLQITorsionSuppressionController::~HydrusTiltedLQITorsionSuppressionController()
 {
   delete lqi_torsion_server_;
 }
 
-void HydrusLQITorsionSuppressionController::controlCore()
+void HydrusTiltedLQITorsionSuppressionController::controlCore()
 {
-  HydrusLQIController::controlCore();
+  PoseLinearController::controlCore();
+
+  tf::Vector3 target_acc_w(pid_controllers_.at(X).result(),
+                           pid_controllers_.at(Y).result(),
+                           pid_controllers_.at(Z).result());
+
+  tf::Vector3 target_acc_dash = (tf::Matrix3x3(tf::createQuaternionFromYaw(rpy_.z()))).inverse() * target_acc_w;
+
+  target_pitch_ = atan2(target_acc_dash.x(), target_acc_dash.z());
+  target_roll_ = atan2(-target_acc_dash.y(), sqrt(target_acc_dash.x() * target_acc_dash.x() + target_acc_dash.z() * target_acc_dash.z()));
+
+  Eigen::VectorXd f = robot_model_->getStaticThrust();
+  Eigen::VectorXd allocate_scales = f / f.sum() * robot_model_->getMass();
+  Eigen::VectorXd target_thrust_z_term = allocate_scales * target_acc_w.length();
+
+  // constraint z (also  I term)
+  int index;
+  double max_term = target_thrust_z_term.cwiseAbs().maxCoeff(&index);
+  double residual = max_term - pid_controllers_.at(Z).getLimitSum();
+  if(residual > 0)
+    {
+      pid_controllers_.at(Z).setErrI(pid_controllers_.at(Z).getErrI() - residual / allocate_scales(index) / pid_controllers_.at(Z).getIGain());
+      target_thrust_z_term *= (1 - residual / max_term);
+    }
+
+  for(int i = 0; i < motor_num_; i++)
+    {
+      target_base_thrust_.at(i) = target_thrust_z_term(i);
+      pid_msg_.z.total.at(i) =  target_thrust_z_term(i);
+    }
+
   allocateYawTerm();
 
+  /* torsion suppression control */
   double psi_err = pid_controllers_.at(YAW).getErrP();
   std::vector<double> torsions_target_p(torsion_num_);
   std::vector<double> torsions_target_d(torsion_num_);
@@ -46,18 +83,16 @@ void HydrusLQITorsionSuppressionController::controlCore()
     torsions_target_d[i] = -yaw_torsion_d_gain_ * psi_err;
   }
 
-  /* torsion suppression control */
   for (int i = 0; i < motor_num_; ++i) {
     for (int j = 0; j < torsion_num_; ++j) {
-      target_base_thrust_[i] += q_mu_p_gains_[j][i] * (torsions_[j]-torsions_target_p[j]) 
-                              + q_mu_d_gains_[j][i] * (torsions_d_[j]-torsions_target_d[j]);
+      target_base_thrust_[i] += q_mu_p_gains_[j][i] * (torsions_[j]-torsions_target_p[j]) + q_mu_d_gains_[j][i] * (torsions_d_[j]-torsions_target_d[j]);
     }
   }
 }
 
-// for normal lqi
-bool HydrusLQITorsionSuppressionController::optimalGain()
+bool HydrusTiltedLQITorsionSuppressionController::optimalGain()
 {
+  /* use z in calculation */
   Eigen::MatrixXd P = robot_model_->calcWrenchMatrixOnCoG();
   Eigen::MatrixXd P_dash = Eigen::MatrixXd::Zero(lqi_mode_, motor_num_);
   Eigen::MatrixXd inertia = robot_model_->getInertia<Eigen::Matrix3d>();
@@ -125,8 +160,8 @@ bool HydrusLQITorsionSuppressionController::optimalGain()
     A_tor(2*i+1, 2*i) = -(1/I1+1/I2) * torsional_spring_constant_;
 
     // yaw couppling TODO
-    double front_back_cog_dist = (front_inertia_from_half_link.getCOG() - back_inertia_from_half_link.getCOG()).Norm();
-    A(7, 8+i*2) += -hydrus_robot_model_->getMass() * gravity_acc /4 * front_back_cog_dist / hydrus_robot_model_->getInertia<KDL::RotationalInertia>().data[9];
+    // double front_back_cog_dist = (front_inertia_from_half_link.getCOG() - back_inertia_from_half_link.getCOG()).Norm();
+    // A(7, 8+i*2) += -hydrus_robot_model_->getMass() * gravity_acc /4 * front_back_cog_dist / hydrus_robot_model_->getInertia<KDL::RotationalInertia>().data[9];
 
     B_tor.row(2*i+1) = Q_mu;
     C_tor(i, 2*i) = 1;
@@ -157,8 +192,12 @@ bool HydrusLQITorsionSuppressionController::optimalGain()
   Eigen::MatrixXd Q = q_diagonals.asDiagonal();
   ROS_DEBUG_STREAM_NAMED("LQI gain generator", "LQI gain generator: Q: \n"  <<  Q );
 
-  Eigen::MatrixXd R  = Eigen::MatrixXd::Zero(motor_num_, motor_num_);
-  for(int i = 0; i < motor_num_; ++i) R(i,i) = r_.at(i);
+  // Eigen::MatrixXd R  = Eigen::MatrixXd::Zero(motor_num_, motor_num_);
+  // for(int i = 0; i < motor_num_; ++i) R(i,i) = r_.at(i);
+  Eigen::MatrixXd P_trans = P.topRows(3) / hydrus_robot_model_->getMass() ;
+  Eigen::MatrixXd R_trans = P_trans.transpose() * P_trans;
+  Eigen::MatrixXd R_input = Eigen::MatrixXd::Identity(motor_num_, motor_num_);
+  Eigen::MatrixXd R = R_trans * trans_constraint_weight_ + R_input * att_control_weight_;
 
   ROS_DEBUG_STREAM_NAMED("LQI gain generator", "LQI gain generator: R: \n"  <<  R );
 
@@ -177,7 +216,7 @@ bool HydrusLQITorsionSuppressionController::optimalGain()
 
   ROS_DEBUG_STREAM_NAMED("LQI gain generator",  "LQI gain generator: CARE: %f sec" << ros::Time::now().toSec() - t);
   ROS_DEBUG_STREAM_NAMED("LQI gain generator",  "LQI gain generator:  K \n" <<  K_);
-  ROS_DEBUG_STREAM_THROTTLE_NAMED(2, "LQI gain generator",  "LQI gain generator:  K \n" <<  K_);
+  //ROS_INFO_STREAM_THROTTLE_NAMED(2, "LQI gain generator",  "LQI gain generator:  K \n" <<  K_);
 
   for(int i = 0; i < motor_num_; ++i) {
     roll_gains_.at(i) = Eigen::Vector3d(-K_(i,2),  K_(i, lqi_mode_ * 2 + 1), -K_(i,3));
@@ -199,20 +238,197 @@ bool HydrusLQITorsionSuppressionController::optimalGain()
   // compensation for gyro moment
   p_mat_pseudo_inv_ = aerial_robot_model::pseudoinverse(P.middleRows(2, lqi_mode_));
   return true;
+
+/* no use of z in state, ces could not be solved WHY?????
+  Eigen::MatrixXd P = robot_model_->calcWrenchMatrixOnCoG();
+  Eigen::MatrixXd inertia = robot_model_->getInertia<Eigen::Matrix3d>();
+  Eigen::MatrixXd P_dash  = inertia.inverse() * P.bottomRows(3); // roll, pitch, yaw
+  ROS_INFO_STREAM("P: " << std::endl << P);
+
+  Eigen::MatrixXd A_eom = Eigen::MatrixXd::Zero(9, 9);
+  Eigen::MatrixXd B_eom = Eigen::MatrixXd::Zero(9, motor_num_);
+  Eigen::MatrixXd C_eom = Eigen::MatrixXd::Zero(3, 9);
+  for(int i = 0; i < 3; i++)
+    {
+      A_eom(2 * i, 2 * i + 1) = 1;
+      B_eom.row(2 * i + 1) = P_dash.row(i);
+      C_eom(i, 2 * i) = 1;
+    }
+  A_eom.block(6, 0, 3, 9) = -C_eom;
+
+  Eigen::MatrixXd A_tor = Eigen::MatrixXd::Zero(torsion_num_*2, torsion_num_*2);
+  Eigen::MatrixXd B_tor = Eigen::MatrixXd::Zero(torsion_num_*2, motor_num_);
+  Eigen::MatrixXd C_tor = Eigen::MatrixXd::Zero(torsion_num_, torsion_num_*2);
+
+  for(int i = 0; i < torsion_num_; i++) {
+    double I1, I2;
+    Eigen::VectorXd Q_mu = Eigen::VectorXd::Zero(motor_num_);
+    KDL::RigidBodyInertia front_inertia_from_half_link;
+    KDL::RigidBodyInertia back_inertia_from_half_link;
+    KDL::Vector front_cog_, back_cog_;
+    const double gravity_acc = 9.8;
+    // TODO revise for tilted rotors
+    if (motor_num_ % 2 == 0) {
+      front_inertia_from_half_link = getHalfRotInertiaAroundLink(motor_num_/2+1, true);
+      back_inertia_from_half_link  = getHalfRotInertiaAroundLink(motor_num_/2, false);
+      I1 = front_inertia_from_half_link.getRotationalInertia().data[0];
+      I2 = back_inertia_from_half_link.getRotationalInertia().data[0];
+      for (int j=0; j<motor_num_/2; j++) {
+        Q_mu(j) = -getTorsionalMomentArmLength(motor_num_/2+1, j+1) /I1;
+      }
+      for (int j=motor_num_/2; j<motor_num_; j++) {
+        Q_mu(j) = getTorsionalMomentArmLength(motor_num_/2, j+1) /I2;
+      }
+    } else {
+      front_inertia_from_half_link = getHalfRotInertiaAroundLink((motor_num_+1)/2, true);
+      back_inertia_from_half_link  = getHalfRotInertiaAroundLink((motor_num_+1)/2, false);
+      I1 = front_inertia_from_half_link.getRotationalInertia().data[0];
+      I2 = back_inertia_from_half_link.getRotationalInertia().data[0];
+      for (int j=0; j<(motor_num_+1)/2; j++) {
+        Q_mu(j) = -getTorsionalMomentArmLength((motor_num_+1)/2, j+1) /I1;
+      }
+      for (int j=(motor_num_+1)/2; j<motor_num_; j++) {
+        Q_mu(j) = getTorsionalMomentArmLength((motor_num_+1)/2, j+1) /I2;
+      }
+    }
+    A_tor(2*i, 2*i+1) = 1;
+    A_tor(2*i+1, 2*i) = -(1/I1+1/I2) * torsional_spring_constant_;
+
+    B_tor.row(2*i+1) = Q_mu;
+    C_tor(i, 2*i) = 1;
+  }
+
+  Eigen::MatrixXd A = Eigen::MatrixXd::Zero(9+torsion_num_*2, 9+torsion_num_*2);
+  Eigen::MatrixXd B = Eigen::MatrixXd::Zero(9+torsion_num_*2, motor_num_);
+  Eigen::MatrixXd C = Eigen::MatrixXd::Zero(3 +torsion_num_, 9 +torsion_num_*2);
+
+  A.block(0, 0, 9, 9) = A_eom;
+  A.block(9, 9, torsion_num_*2, torsion_num_*2) = A_tor;
+  B.block(0,0,9, motor_num_) = B_eom;
+  B.block(9, 0, torsion_num_*2, motor_num_) = B_tor;
+  C.block(0,0, 3, 9) = C_eom;
+  C.block(3, 9, 9, torsion_num_*2) = C_tor;
+
+  //ROS_INFO_STREAM_NAMED("LQI gain generator", "LQI gain generator: A: \n"  <<  A );
+  //ROS_INFO_STREAM_NAMED("LQI gain generator", "LQI gain generator: B: \n"  <<  B );
+  //ROS_INFO_STREAM_NAMED("LQI gain generator", "LQI gain generator: C: \n"  <<  C );
+
+  Eigen::VectorXd q_diagonals(9+torsion_num_*2);
+  q_diagonals << lqi_roll_pitch_weight_(0), lqi_roll_pitch_weight_(2), lqi_roll_pitch_weight_(0), lqi_roll_pitch_weight_(2), lqi_yaw_weight_(0), lqi_yaw_weight_(2), lqi_roll_pitch_weight_(1), lqi_roll_pitch_weight_(1), lqi_yaw_weight_(1);
+
+  for (int i = 0; i < torsion_num_; ++i) {
+    q_diagonals(9+2*i) = q_mu_;
+    q_diagonals(9+2*i+1) = q_mu_d_;
+  }
+
+  Eigen::MatrixXd Q = q_diagonals.asDiagonal();
+
+  Eigen::MatrixXd P_trans = P.topRows(3) / hydrus_robot_model_->getMass() ;
+  Eigen::MatrixXd R_trans = P_trans.transpose() * P_trans;
+  Eigen::MatrixXd R_input = Eigen::MatrixXd::Identity(motor_num_, motor_num_);
+  Eigen::MatrixXd R = R_trans * trans_constraint_weight_ + R_input * att_control_weight_;
+
+  // There is BUG??? in care.cpp:125
+  // double t = ros::Time::now().toSec();
+  // bool use_kleinman_method = true;
+  // if(K_.cols() == 0 || K_.rows() == 0) use_kleinman_method = false;
+  // if(!control_utils::care(A, B, R, Q, K_, use_kleinman_method))
+  //   {
+  //     ROS_ERROR_STREAM("error in solver of continuous-time algebraic riccati equation");
+  //     return false;
+  //   }
+
+  // ROS_DEBUG_STREAM_NAMED("LQI gain generator",  "LQI gain generator: CARE: %f sec" << ros::Time::now().toSec() - t);
+  // ROS_DEBUG_STREAM_NAMED("LQI gain generator",  "LQI gain generator:  K \n" <<  K_);
+  // temporaly use former method
+  Eigen::MatrixXd R_inv = R.inverse();
+  const int H_size_half = 9+torsion_num_*2;
+  Eigen::MatrixXcd H = Eigen::MatrixXcd::Zero(H_size_half * 2, H_size_half * 2);
+  H.block(0,0, H_size_half, H_size_half) = A.cast<std::complex<double> >();
+  H.block(H_size_half, 0, H_size_half, H_size_half) = -(Q.cast<std::complex<double> >());
+  H.block(0, H_size_half, H_size_half, H_size_half) = - (B * R_inv * B.transpose()).cast<std::complex<double> >();
+  H.block(H_size_half, H_size_half, H_size_half, H_size_half) = - (A.transpose()).cast<std::complex<double> >();
+
+  ROS_INFO_STREAM("ok1");
+  //eigen solving
+  ros::Time start_time = ros::Time::now();
+  Eigen::ComplexEigenSolver<Eigen::MatrixXcd> ces;
+  ces.compute(H);
+  ROS_INFO_STREAM("ok2");
+
+  Eigen::MatrixXcd phy = Eigen::MatrixXcd::Zero(H_size_half * 2, H_size_half);
+  int j = 0;
+
+  // TODO bug in range????
+  //for(int i = 0; i < H_size_half * 2; i++) {
+  for(int i = 0; i < ces.eigenvalues().size(); i++) {
+    if(ces.eigenvalues()[i].real() < 0) {
+      if(j >= H_size_half) {
+        ROS_ERROR("nagativa sigular amount is larger");
+        return false;
+      }
+      phy.col(j) = ces.eigenvectors().col(i);
+      j++;
+    }
+  }
+  if(j != H_size_half) {
+    ROS_ERROR("nagativa sigular value amount is not enough");
+    return false;
+  }
+  ROS_INFO_STREAM("ok3");
+  Eigen::MatrixXcd f = phy.block(0, 0, H_size_half, H_size_half);
+  Eigen::MatrixXcd g = phy.block(H_size_half, 0, H_size_half, H_size_half);
+  Eigen::MatrixXcd f_inv  = f.inverse();
+  Eigen::MatrixXcd P_tmp = g * f_inv;
+
+  K_ = -R_inv * B.transpose() * P_tmp.real();
+  ROS_INFO_STREAM_NAMED("LQI gain generator",  "LQI gain generator:  K \n" <<  K_);
+  // TODO end of temporal method
+
+  for(int i = 0; i < motor_num_; ++i)
+    {
+      roll_gains_.at(i) = Eigen::Vector3d(-K_(i,0), K_(i,6), -K_(i,1));
+      pitch_gains_.at(i) = Eigen::Vector3d(-K_(i,2),  K_(i,7), -K_(i,3));
+      yaw_gains_.at(i) = Eigen::Vector3d(-K_(i,4), K_(i,8), -K_(i,5));
+    }
+
+  for (int i = 0; i < torsion_num_; ++i) {
+    q_mu_p_gains_.at(i).clear();
+    q_mu_d_gains_.at(i).clear();
+    for (int j = 0; j < motor_num_; ++j) {
+      q_mu_p_gains_[i].push_back(K_(j, 9+i*2));
+      q_mu_d_gains_[i].push_back(K_(j, 10+i*2));
+    }
+  }
+
+  // compensation for gyro moment
+  p_mat_pseudo_inv_ = aerial_robot_model::pseudoinverse(P.middleRows(2, 4));
+  return true;
+*/
 }
 
-void HydrusLQITorsionSuppressionController::publishGain()
+void HydrusTiltedLQITorsionSuppressionController::publishGain()
 {
   HydrusLQIController::publishGain();
 
+  double roll,pitch, yaw;
+  robot_model_->getCogDesireOrientation<KDL::Rotation>().GetRPY(roll, pitch, yaw);
+
+  spinal::DesireCoord coord_msg;
+  coord_msg.roll = roll;
+  coord_msg.pitch = pitch;
+  desired_baselink_rot_pub_.publish(coord_msg);
 }
 
-void HydrusLQITorsionSuppressionController::rosParamInit()
+void HydrusTiltedLQITorsionSuppressionController::rosParamInit()
 {
   HydrusLQIController::rosParamInit();
 
   ros::NodeHandle control_nh(nh_, "controller");
   ros::NodeHandle lqi_nh(control_nh, "lqi");
+
+  getParam<double>(lqi_nh, "trans_constraint_weight", trans_constraint_weight_, 1.0);
+  getParam<double>(lqi_nh, "att_control_weight", att_control_weight_, 1.0);
 
   getParam<double>(lqi_nh, "torsional_spring_constant", torsional_spring_constant_, 1.0);
   getParam<int>(lqi_nh, "torsion_num", torsion_num_, 1);
@@ -222,7 +438,7 @@ void HydrusLQITorsionSuppressionController::rosParamInit()
   getParam<double>(lqi_nh, "yaw_torsion_d_gain", yaw_torsion_d_gain_, 0.1);
 }
 
-void HydrusLQITorsionSuppressionController::cfgLQITorsionCallback(hydrus::LQI_torsionConfig &config, uint32_t level)
+void HydrusTiltedLQITorsionSuppressionController::cfgLQITorsionCallback(hydrus::LQI_torsionConfig &config, uint32_t level)
 {
   if(config.lqi_gain_flag)
   {
@@ -252,14 +468,14 @@ void HydrusLQITorsionSuppressionController::cfgLQITorsionCallback(hydrus::LQI_to
   }
 }
 
-void HydrusLQITorsionSuppressionController::linkTorsionCallback(const sensor_msgs::JointStateConstPtr& msg)
+void HydrusTiltedLQITorsionSuppressionController::linkTorsionCallback(const sensor_msgs::JointStateConstPtr& msg)
 {
   if (torsion_num_==0) return;
   copy(msg->position.begin(), msg->position.end(), torsions_.begin());
   copy(msg->velocity.begin(), msg->velocity.end(), torsions_d_.begin());
 }
 
-KDL::RigidBodyInertia HydrusLQITorsionSuppressionController::getHalfRotInertiaAroundLink(int axis_link_idx, bool is_front)
+KDL::RigidBodyInertia HydrusTiltedLQITorsionSuppressionController::getHalfRotInertiaAroundLink(int axis_link_idx, bool is_front)
 {
   int start_link_idx=1;
   int end_link_idx=motor_num_;
@@ -281,7 +497,7 @@ KDL::RigidBodyInertia HydrusLQITorsionSuppressionController::getHalfRotInertiaAr
   return axis_link_f.Inverse() * result_inertia;
 }
 
-double HydrusLQITorsionSuppressionController::getTorsionalMomentArmLength(int axis_link_idx, int motor_idx)
+double HydrusTiltedLQITorsionSuppressionController::getTorsionalMomentArmLength(int axis_link_idx, int motor_idx)
 {
   std::pair<int, int> key=std::make_pair(motor_idx, axis_link_idx);
   double result=0;
@@ -294,7 +510,7 @@ double HydrusLQITorsionSuppressionController::getTorsionalMomentArmLength(int ax
   return result;
 }
 
-double HydrusLQITorsionSuppressionController::getYawMomentArmLength(int axis_link_idx, int motor_idx)
+double HydrusTiltedLQITorsionSuppressionController::getYawMomentArmLength(int axis_link_idx, int motor_idx)
 {
   double result;
   const KDL::Frame thrust_frame_root(robot_model_->getSegmentsTf().at("thrust"+std::to_string(motor_idx)));
@@ -310,4 +526,4 @@ double HydrusLQITorsionSuppressionController::getYawMomentArmLength(int axis_lin
 
 /* plugin registration */
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(aerial_robot_control::HydrusLQITorsionSuppressionController, aerial_robot_control::ControlBase);
+PLUGINLIB_EXPORT_CLASS(aerial_robot_control::HydrusTiltedLQITorsionSuppressionController, aerial_robot_control::ControlBase);

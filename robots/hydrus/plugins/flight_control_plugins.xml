@@ -9,4 +9,7 @@
   <class name="aerial_robot_control/hydrus_lqi_torsion_suppression_controller" type="aerial_robot_control::HydrusLQITorsionSuppressionController" base_class_type="aerial_robot_control::ControlBase">
     <description>LQI based controller with torsion suppression for under-actuated hydrus</description>
   </class>
+  <class name="aerial_robot_control/hydrus_tilted_lqi_torsion_suppression_controller" type="aerial_robot_control::HydrusTiltedLQITorsionSuppressionController" base_class_type="aerial_robot_control::ControlBase">
+    <description>LQI based controller with torsion suppression for tilted under-actuated hydrus</description>
+  </class>
 </library>
