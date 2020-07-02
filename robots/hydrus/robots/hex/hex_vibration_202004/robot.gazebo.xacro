@@ -17,12 +17,12 @@
     <gazebo>
       <!-- joint torsional spring plugin -->
       <plugin name="torsion1_r_torsional_spring" filename="libjoint_torsional_spring_plugin.so">
-        <kx>50</kx>
+        <kx>5</kx>
         <set_point>0</set_point>
         <joint>torsion1_r</joint>
       </plugin>
       <plugin name="torsion2_r_torsional_spring" filename="libjoint_torsional_spring_plugin.so">
-        <kx>50</kx>
+        <kx>5</kx>
         <set_point>0</set_point>
         <joint>torsion2_r</joint>
       </plugin>
@@ -32,12 +32,12 @@
         <joint>torsion3_r</joint>
       </plugin>
       <plugin name="torsion4_r_torsional_spring" filename="libjoint_torsional_spring_plugin.so">
-        <kx>50</kx>
+        <kx>5</kx>
         <set_point>0</set_point>
         <joint>torsion4_r</joint>
       </plugin>
       <plugin name="torsion5_r_torsional_spring" filename="libjoint_torsional_spring_plugin.so">
-        <kx>50</kx>
+        <kx>5</kx>
         <set_point>0</set_point>
         <joint>torsion5_r</joint>
       </plugin>

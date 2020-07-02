@@ -1,6 +1,7 @@
 # aerial_robot_control_name: aerial_robot_control/hydrus_lqi_controller
 # aerial_robot_control_name: aerial_robot_control/hydrus_lqi_torsion_suppression_controller
 aerial_robot_control_name: aerial_robot_control/hydrus_tilted_lqi_torsion_suppression_controller
+# aerial_robot_control_name: aerial_robot_control/hydrus_tilted_lqi_controller
 
 controller:
   xy:
@@ -33,7 +34,7 @@ controller:
 
   # LQI gain generator
   lqi:
-    gain_generate_rate: 15.0
+    gain_generate_rate: 20.0
     gyro_moment_compensation: false
     clamp_gain: true
 
@@ -69,8 +70,14 @@ controller:
     # torsion_control
     torsional_spring_constant: 50.0
     torsion_num: 1
-    q_mu: 50.0
-    q_mu_d: 20.0
-    yaw_torsion_p_gain: 0.05
-    yaw_torsion_p_gain: 0.05
+    # no tilt
+    # q_mu: 50.0
+    # q_mu_d: 20.0
+    # yaw_torsion_p_gain: 0.05
+    # yaw_torsion_p_gain: 0.05
+    # tilt
+    q_mu: 5.0
+    q_mu_d: 0.05
+    yaw_torsion_p_gain: 0.0
+    yaw_torsion_p_gain: 0.0
 

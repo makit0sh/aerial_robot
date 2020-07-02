@@ -116,10 +116,11 @@ bool HydrusTiltedLQITorsionSuppressionController::optimalGain()
 
   for (int i = 0; i < motor_num_; ++i) {
     //ROS_INFO_STREAM("yaw arm length of link " << i+1 <<" : " << getYawMomentArmLength(motor_num_/2, i+1));
-    // TODO did not work 全部負になって制御できなくなった
+    // no tilt だとjdid not work 全部負になって制御できなくなった
+    // tilt 入れると動いたが、この項が効果あるかは不明、なくても動いた
     //ROS_INFO_STREAM("yaw b    at " << i+1 << " : " << B_eom(7, i));
     //ROS_INFO_STREAM("yaw btor at " << i+1 << " : " << -torsions_[0] * getYawMomentArmLength(motor_num_/2, i+1));
-    //B_eom(7, i) -= torsions_[0] * getYawMomentArmLength(motor_num_/2, i+1);;
+     B_eom(7, i) -= torsions_[0] * getYawMomentArmLength(motor_num_/2, i+1);;
   }
 
   Eigen::MatrixXd A_tor = Eigen::MatrixXd::Zero(torsion_num_*2, torsion_num_*2);
