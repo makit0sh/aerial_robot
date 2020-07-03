@@ -44,10 +44,10 @@
     </gazebo>
     <gazebo>
       <plugin name="torsion_joint_state_publisher" filename="libgazebo_ros_joint_state_publisher.so">
-        <!-- <robotNamespace>/link_torsion_groundtruth</robotNamespace> -->
-        <!-- <jointName>torsion1_r, torsion2_r, torsion3_r, torsion4_r, torsion5_r</jointName> -->
-        <robotNamespace>/hydrus/link_torsion</robotNamespace>
-        <jointName>torsion3_r</jointName>
+        <robotNamespace>/$(arg robot_name)/link_torsion_groundtruth</robotNamespace>
+        <jointName>torsion1_r, torsion2_r, torsion3_r, torsion4_r, torsion5_r</jointName>
+        <!-- <robotNamespace>/$(arg robot_name)/link_torsion</robotNamespace> -->
+        <!-- <jointName>torsion3_r</jointName> -->
         <updateRate>50.0</updateRate>
         <alwaysOn>true</alwaysOn>
       </plugin>
@@ -63,7 +63,7 @@
       <visualize>true</visualize>
       <topic>__default_topic__</topic>
       <plugin filename="libgazebo_ros_imu_sensor.so" name="imu_plugin">
-        <topicName>neuron1_imu</topicName>
+        <topicName>/$(arg robot_name)/neuron1_imu</topicName>
         <bodyName>neuron1_imu</bodyName>
         <updateRateHZ>200.0</updateRateHZ>
         <gaussianNoise>0.001</gaussianNoise>
@@ -82,7 +82,7 @@
       <visualize>true</visualize>
       <topic>__default_topic__</topic>
       <plugin filename="libgazebo_ros_imu_sensor.so" name="imu_plugin">
-        <topicName>main_imu</topicName>
+        <topicName>/$(arg robot_name)/main_imu</topicName>
         <bodyName>main_imu</bodyName>
         <updateRateHZ>200.0</updateRateHZ>
         <gaussianNoise>0.001</gaussianNoise>
@@ -101,7 +101,7 @@
       <visualize>true</visualize>
       <topic>__default_topic__</topic>
       <plugin filename="libgazebo_ros_imu_sensor.so" name="imu_plugin">
-        <topicName>neuron6_imu</topicName>
+        <topicName>/$(arg robot_name)/neuron6_imu</topicName>
         <bodyName>neuron6_imu</bodyName>
         <updateRateHZ>200.0</updateRateHZ>
         <gaussianNoise>0.001</gaussianNoise>
@@ -119,7 +119,7 @@
     <!-- TODO neuron?_imu does not work as bodyName why? -->
     <plugin filename="libgazebo_ros_p3d.so" name="neuron1_groundtruth">
       <bodyName>thrust1</bodyName>
-      <topicName>neuron1_groundtruth</topicName>
+      <topicName>/$(arg robot_name)/neuron1_groundtruth</topicName>
       <updateRate>50</updateRate>
       <gaussianNoise>0.005</gaussianNoise>
       <xyzOffset>0 0 0</xyzOffset>
@@ -128,7 +128,7 @@
     </plugin>
     <plugin filename="libgazebo_ros_p3d.so" name="neuron6_groundtruth">
       <bodyName>thrust6</bodyName>
-      <topicName>neuron6_groundtruth</topicName>
+      <topicName>/$(arg robot_name)/neuron6_groundtruth</topicName>
       <updateRate>50</updateRate>
       <gaussianNoise>0.005</gaussianNoise>
       <xyzOffset>0 0 0</xyzOffset>

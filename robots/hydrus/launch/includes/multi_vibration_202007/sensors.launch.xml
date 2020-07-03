@@ -4,6 +4,7 @@
   <arg name="real_machine" default="false" />
   <arg name="simulation" default="false" />
   <arg name="robot_ns" default="hydrus" />
+  <arg name="links" default="6" />
 
   <group ns="$(arg robot_ns)">
 
@@ -32,10 +33,12 @@
     <rosparam file="$(find aerial_robot_base)/config/sensors/mocap.yaml" command="load" />
     <rosparam file="$(find aerial_robot_base)/config/sensors/altmeter/leddar_one.yaml" command="load" />
 
-    <node pkg='hydrus' type='neuron_odom2jointstate.py' name='odom2jointstate' output='screen'>
-      <param name="mode" value="rot"/>
+    <node pkg='hydrus' type='neuronAttitude2Torsion.py' name='imu2jointstate' output='screen'>
+      <param name="simulation" value="$(arg simulation)"/>
+      <param name="mode" value="tip"/>
+      <param name="rate" value="30"/>
+      <param name="links" value="$(arg links)"/>
       <param name="robot_name" value="$(arg robot_ns)"/>
-      <param name='joint_state_topic_name' value='link_torsion/joint_states'/>
     </node>
 
   </group>

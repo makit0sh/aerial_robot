@@ -471,9 +471,16 @@ void HydrusTiltedLQITorsionSuppressionController::cfgLQITorsionCallback(hydrus::
 
 void HydrusTiltedLQITorsionSuppressionController::linkTorsionCallback(const sensor_msgs::JointStateConstPtr& msg)
 {
-  if (torsion_num_==0) return;
-  copy(msg->position.begin(), msg->position.end(), torsions_.begin());
-  copy(msg->velocity.begin(), msg->velocity.end(), torsions_d_.begin());
+  if (torsion_num_<=0) return;
+  // TODO only mode 1 considered
+  int torsion_sz = msg->position.size();
+  torsions_[0] = 0; torsions_d_[0] = 0;
+  for (int i = 0; i < torsion_sz; ++i) {
+    torsions_[0] += (i>torsion_sz/2 ? -1 : 1) * msg->position[i];
+    torsions_d_[0] += (i>torsion_sz/2 ? -1 : 1) * msg->velocity[i];
+  }
+  // copy(msg->position.begin(), msg->position.end(), torsions_.begin());
+  // copy(msg->velocity.begin(), msg->velocity.end(), torsions_d_.begin());
 }
 
 KDL::RigidBodyInertia HydrusTiltedLQITorsionSuppressionController::getHalfRotInertiaAroundLink(int axis_link_idx, bool is_front)

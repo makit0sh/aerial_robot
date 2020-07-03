@@ -11,6 +11,7 @@
   <arg name="spawn_yaw" default="0.0"/>
   <arg name="use_model_with_sim_flag" default="false"/>
   <arg name="robot_model" default=""/>
+  <arg name="model_options" default=""/>
 
   <!-- gazebo world -->
   <include file="$(find gazebo_ros)/launch/empty_world.launch" if="$(arg launch_gazebo)">
@@ -28,7 +29,7 @@
   <!-- model with simulation flag -->
   <group if="$(arg use_model_with_sim_flag)">
     <param name="$(arg robot_ns)/robot_description_sim"
-             command="$(find xacro)/xacro.py '$(arg robot_model)' sim:=true" />
+             command="$(find xacro)/xacro.py '$(arg robot_model)' sim:=true $(arg model_options)" />
   </group>
   <arg name="robot_description_name" default="robot_description" unless="$(arg use_model_with_sim_flag)"/>
   <arg name="robot_description_name" default="robot_description_sim" if="$(arg use_model_with_sim_flag)"/>

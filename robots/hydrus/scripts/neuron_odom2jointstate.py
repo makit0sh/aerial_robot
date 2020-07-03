@@ -23,9 +23,9 @@ if __name__ == "__main__":
     update_rate = rospy.get_param("~update_rate", 30)
 
     robot_name = rospy.get_param("~robot_name", "hydrus")
-    joint_state_topic_name = rospy.get_param("~joint_state_topic_name", "link_torsion/joint_states")
-    odometry_root_topic_name = rospy.get_param("~joint_control_topic_name", "/neuron1_groundtruth")
-    odometry_tip_topic_name = rospy.get_param("~joint_control_topic_name", "/neuron6_groundtruth")
+    joint_state_topic_name = rospy.get_param("~joint_state_topic_name", "/"+robot_name+"/link_torsion/joint_states")
+    odometry_root_topic_name = rospy.get_param("~joint_control_topic_name", "/"+robot_name+"/neuron1_groundtruth")
+    odometry_tip_topic_name = rospy.get_param("~joint_control_topic_name", "/"+robot_name+"/neuron6_groundtruth")
 
     joint_state_pub = rospy.Publisher(joint_state_topic_name, JointState, queue_size=10)
     odom_root_sub = rospy.Subscriber(odometry_root_topic_name, Odometry, odom_callback, odometry_root_topic_name)
