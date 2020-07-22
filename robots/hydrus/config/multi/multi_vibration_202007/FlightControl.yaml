@@ -1,6 +1,7 @@
 # aerial_robot_control_name: aerial_robot_control/hydrus_lqi_controller
 # aerial_robot_control_name: aerial_robot_control/hydrus_lqi_torsion_suppression_controller
-aerial_robot_control_name: aerial_robot_control/hydrus_tilted_lqi_torsion_suppression_controller
+# aerial_robot_control_name: aerial_robot_control/hydrus_tilted_lqi_torsion_suppression_controller
+aerial_robot_control_name: aerial_robot_control/hydrus_tilted_lqi_torsion_mode_controller
 # aerial_robot_control_name: aerial_robot_control/hydrus_tilted_lqi_controller
 
 controller:
@@ -47,9 +48,9 @@ controller:
     roll_pitch_i: 10
 
     # no tilt
-    yaw_p: 1.0
+    yaw_p: 10.0
     yaw_i: 0.5
-    yaw_d: 0.050
+    yaw_d: 0.50
     # tilt
     # yaw_p: 100
     # yaw_i: 0.5
@@ -68,7 +69,9 @@ controller:
     att_control_weight: 1
 
     # torsion_control torsional_spring_constant: 50.0
-    torsion_num: 1
+    mode_num: 2
+    q_mu: [0.1, 0.01]
+    q_mu_d: [0.01, 0.001]
     # no tilt
     # q_mu: 50.0
     # q_mu_d: 20.0
@@ -79,8 +82,8 @@ controller:
     # q_mu: 5.0
     # q_mu_d: 0.05
     # TODO with tip diff estimator
-    q_mu: 0.1
-    q_mu_d: 0.01
-    yaw_torsion_p_gain: 0.0
-    yaw_torsion_p_gain: 0.0
+    # q_mu: 0.1
+    # q_mu_d: 0.01
+    # yaw_torsion_p_gain: 0.0
+    # yaw_torsion_p_gain: 0.0
 

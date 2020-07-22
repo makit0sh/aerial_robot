@@ -5,6 +5,7 @@
   <arg name="simulation" default="false" />
   <arg name="robot_ns" default="hydrus" />
   <arg name="links" default="6" />
+  <arg name="robot_model" />
 
   <group ns="$(arg robot_ns)">
 
@@ -33,12 +34,22 @@
     <rosparam file="$(find aerial_robot_base)/config/sensors/mocap.yaml" command="load" />
     <rosparam file="$(find aerial_robot_base)/config/sensors/altmeter/leddar_one.yaml" command="load" />
 
+    <!--
     <node pkg='hydrus' type='neuronAttitude2Torsion.py' name='imu2jointstate' output='screen'>
       <param name="simulation" value="$(arg simulation)"/>
       <param name="mode" value="tip"/>
       <param name="rate" value="30"/>
       <param name="links" value="$(arg links)"/>
       <param name="robot_name" value="$(arg robot_ns)"/>
+    </node>
+    -->
+
+    <node pkg="hydrus" type="torsion_mode_calculator" name="torsion_mode_calculator" output="screen">
+      <param name="robot_description_control" command="$(find xacro)/xacro.py '$(arg robot_model)' robot_name:=$(arg robot_ns) links:=$(arg links) sim:=true fix_rotor:=1"/>
+      <!-- TODO limit mode num to reduce data size -->
+      <!-- <param name="mode_num" type="int" value="2"/> -->
+      <param name="torsion_constant" type="double" value="1.0"/>
+      <param name="rotor_num" type="int" value="$(arg links)"/>
     </node>
 
   </group>

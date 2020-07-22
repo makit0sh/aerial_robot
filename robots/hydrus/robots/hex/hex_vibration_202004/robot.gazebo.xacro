@@ -16,36 +16,36 @@
   <xacro:if value="$(arg sim)">
     <gazebo>
       <!-- joint torsional spring plugin -->
-      <plugin name="torsion1_r_torsional_spring" filename="libjoint_torsional_spring_plugin.so">
+      <plugin name="torsion1_torsional_spring" filename="libjoint_torsional_spring_plugin.so">
         <kx>5</kx>
         <set_point>0</set_point>
-        <joint>torsion1_r</joint>
+        <joint>torsion1</joint>
       </plugin>
-      <plugin name="torsion2_r_torsional_spring" filename="libjoint_torsional_spring_plugin.so">
+      <plugin name="torsion2_torsional_spring" filename="libjoint_torsional_spring_plugin.so">
         <kx>5</kx>
         <set_point>0</set_point>
-        <joint>torsion2_r</joint>
+        <joint>torsion2</joint>
       </plugin>
-      <plugin name="torsion3_r_torsional_spring" filename="libjoint_torsional_spring_plugin.so">
+      <plugin name="torsion3_torsional_spring" filename="libjoint_torsional_spring_plugin.so">
         <kx>5</kx>
         <set_point>0</set_point>
-        <joint>torsion3_r</joint>
+        <joint>torsion3</joint>
       </plugin>
-      <plugin name="torsion4_r_torsional_spring" filename="libjoint_torsional_spring_plugin.so">
+      <plugin name="torsion4_torsional_spring" filename="libjoint_torsional_spring_plugin.so">
         <kx>5</kx>
         <set_point>0</set_point>
-        <joint>torsion4_r</joint>
+        <joint>torsion4</joint>
       </plugin>
-      <plugin name="torsion5_r_torsional_spring" filename="libjoint_torsional_spring_plugin.so">
+      <plugin name="torsion5_torsional_spring" filename="libjoint_torsional_spring_plugin.so">
         <kx>5</kx>
         <set_point>0</set_point>
-        <joint>torsion5_r</joint>
+        <joint>torsion5</joint>
       </plugin>
     </gazebo>
     <gazebo>
       <plugin name="torsion_joint_state_publisher" filename="libgazebo_ros_joint_state_publisher.so">
         <robotNamespace>/$(arg robot_name)/link_torsion_groundtruth</robotNamespace>
-        <jointName>torsion1_r, torsion2_r, torsion3_r, torsion4_r, torsion5_r</jointName>
+        <jointName>torsion1, torsion2, torsion3, torsion4, torsion5</jointName>
         <!-- <robotNamespace>/$(arg robot_name)/link_torsion</robotNamespace> -->
         <!-- <jointName>torsion3_r</jointName> -->
         <updateRate>50.0</updateRate>

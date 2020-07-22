@@ -18,6 +18,11 @@ add_message_files(FILES
   WrenchAllocationMatrix.msg
 )
 
+add_service_files(
+  FILES
+  SetFloat64Array.srv
+)
+
 ## Generate added messages and services
 generate_messages(DEPENDENCIES std_msgs std_msgs geometry_msgs)
 

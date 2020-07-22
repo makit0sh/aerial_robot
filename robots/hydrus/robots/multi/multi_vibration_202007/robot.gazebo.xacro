@@ -7,6 +7,7 @@
   <xacro:arg name="sim" default="false"/>
 
   <xacro:arg name="links" default="8"/>
+  <xacro:arg name="fix_rotor" default="0"/>
 
   <!-- robot urdf -->
   <xacro:include filename="$(find hydrus)/robots/multi/multi_vibration_202007/robot.urdf.xacro" />
@@ -19,10 +20,10 @@
     <!-- joint torsional spring plugin -->
     <gazebo>
     <xacro:macro name="loop_plugin_torsion" params="links_qty">
-      <plugin name="torsion${links_qty-1}_r_torsional_spring" filename="libjoint_torsional_spring_plugin.so">
+      <plugin name="torsion${links_qty-1}_torsional_spring" filename="libjoint_torsional_spring_plugin.so">
         <kx>10</kx>
         <set_point>0</set_point>
-        <joint>torsion${links_qty-1}_r</joint>
+        <joint>torsion${links_qty-1}</joint>
       </plugin>
 
       <xacro:if value="${links_qty-2}">
@@ -34,10 +35,10 @@
 
     <gazebo>
       <plugin name="torsion_joint_state_publisher" filename="libgazebo_ros_joint_state_publisher.so">
-        <robotNamespace>/$(arg robot_name)/link_torsion_groundtruth</robotNamespace>
-        <!-- <robotNamespace>/$(arg robot_name)/link_torsion</robotNamespace> -->
-        <!-- <jointName>torsion1_r, torsion2_r, torsion3_r, torsion4_r, torsion5_r</jointName> -->
-        <!-- <jointName>torsion1_r, torsion2_r, torsion3_r, torsion4_r, torsion5_r, torsion6_r, torsion7_r</jointName> -->
+        <!-- <robotNamespace>/$(arg robot_name)/link_torsion_groundtruth</robotNamespace> -->
+        <robotNamespace>/$(arg robot_name)/link_torsion</robotNamespace>
+        <jointName>torsion1, torsion2, torsion3, torsion4, torsion5</jointName>
+        <!-- <jointName>torsion1, torsion2, torsion3, torsion4, torsion5, torsion6, torsion7</jointName> -->
         <updateRate>30.0</updateRate>
         <alwaysOn>true</alwaysOn>
       </plugin>

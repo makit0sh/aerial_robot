@@ -17,6 +17,23 @@ find_package(catkin REQUIRED COMPONENTS
   )
 
 find_package(Eigen3 REQUIRED)
+# TODO Try building in catkin
+find_library(
+  RBDL_LIBRARY
+  REQUIRED
+  NAMES rbdl
+  PATHS /usr/local/lib
+  PATH_SUFFIXES lib
+  NO_DEFAULT_PATH
+  )
+find_library(
+  RBDL_URDFReader_LIBRARY
+  REQUIRED
+  NAMES rbdl_urdfreader
+  PATHS /usr/local/lib
+  PATH_SUFFIXES lib
+  NO_DEFAULT_PATH
+  )
 
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 
@@ -52,7 +69,17 @@ include_directories(
   ${Boost_INCLUDE_DIR}
   ${catkin_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIRS}
+  ${RBDL_INDLUDE_DIR}
 )
+
+# Source files for RBDL
+# SET (RBDL_BUILD_ADDON_URDFREADER "Build the (experimental) urdf reader" OFF)
+# SET (RBDL_USE_ROS_URDF_LIBRARY "" OFF)
+# SET (CMAKE_BUILD_TYPE "" Release)
+# ADD_SUBDIRECTORY( rbdl )
+
+add_executable(torsion_mode_calculator src/torsion_mode_calculator.cpp)
+target_link_libraries(torsion_mode_calculator ${catkin_LIBRARIES} ${RBDL_LIBRARY} ${RBDL_URDFReader_LIBRARY})
 
 add_library(hydrus_robot_model
   src/hydrus_robot_model.cpp
@@ -64,8 +91,12 @@ add_library(hydrus_controller_pluginlib
   src/hydrus_lqi_controller.cpp
   src/hydrus_lqi_torsion_suppression_controller.cpp
   src/hydrus_tilted_lqi_torsion_suppression_controller.cpp
+  src/hydrus_tilted_lqi_torsion_mode_controller.cpp
   src/hydrus_tilted_lqi_controller.cpp)
-target_link_libraries(hydrus_controller_pluginlib hydrus_robot_model ${catkin_LIBRARIES} ${EIGEN3_LIBRARIES})
+target_link_libraries(hydrus_controller_pluginlib hydrus_robot_model 
+  ${catkin_LIBRARIES} ${EIGEN3_LIBRARIES}
+  ${RBDL_LIBRARY} ${RBDL_URDFReader_LIBRARY}
+  )
 add_dependencies(hydrus_controller_pluginlib aerial_robot_msgs_generate_messages_cpp spinal_generate_messages_cpp ${PROJECT_NAME}_gencfg)
 
 # test

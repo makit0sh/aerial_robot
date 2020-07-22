@@ -5,6 +5,7 @@
   <xacro:arg name="sim" default="false"/>
 
   <xacro:arg name="links" default="8"/>
+  <xacro:arg name="fix_rotor" default="0"/>
   <xacro:arg name="tilt_mode" default="1"/>
   <xacro:arg name="tilt_angle" default="20"/>
 
@@ -15,10 +16,10 @@
   <xacro:if value="$(arg sim)">
     <xacro:macro name="loop_link_sim" params="links_qty">
         <xacro:if value="${links_qty==$(arg links)}">
-          <xacro:hydrus_link links="$(arg links)" self="${links_qty}" rotor_direction="${int(pow(-1, links_qty))}" with_battery = "1"  vibrate = "0" tilt_mode="$(arg tilt_mode)" tilt_angle="$(arg tilt_angle)"/>
+          <xacro:hydrus_link links="$(arg links)" self="${links_qty}" rotor_direction="${int(pow(-1, links_qty))}" with_battery = "1"  vibrate = "0" tilt_mode="$(arg tilt_mode)" tilt_angle="$(arg tilt_angle)" fix_rotor="$(arg fix_rotor)"/>
         </xacro:if>
         <xacro:unless value="${links_qty==$(arg links)}">
-          <xacro:hydrus_link links="$(arg links)" self="${links_qty}" rotor_direction="${int(pow(-1, links_qty))}" with_battery = "1"  vibrate = "1" tilt_mode="$(arg tilt_mode)" tilt_angle="$(arg tilt_angle)"/>
+          <xacro:hydrus_link links="$(arg links)" self="${links_qty}" rotor_direction="${int(pow(-1, links_qty))}" with_battery = "1"  vibrate = "1" tilt_mode="$(arg tilt_mode)" tilt_angle="$(arg tilt_angle)" fix_rotor="$(arg fix_rotor)"/>
         </xacro:unless>
 
       <xacro:if value="${links_qty-1}">
