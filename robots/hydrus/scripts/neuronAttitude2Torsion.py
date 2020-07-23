@@ -82,15 +82,6 @@ class AdjacentAttDiffEstimator(NeuronAttitude2Torsion):
         except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException):
             return
 
-        # for i in [2]:
-        #     q_org_ideal = self.tf2quat(link_tfs[0])
-        #     q_next_ideal = self.tf2quat(link_tfs[i+1])
-        #     q_shape = quaternion_multiply(q_next_ideal, quaternion_inverse(q_org_ideal))
-
-        #     q_org_observed = att_quats[0]
-        #     q_next_observed = att_quats[i+1]
-
-        #     q_torsion = quaternion_multiply(q_next_observed, quaternion_inverse(quaternion_multiply(q_shape, q_org_observed)))
         for i in range(self.torsion_num_):
             q_org_ideal = self.tf2quat(link_tfs[i])
             q_next_ideal = self.tf2quat(link_tfs[i+1])
