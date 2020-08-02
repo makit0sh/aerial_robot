@@ -26,11 +26,13 @@ void HydrusTiltedLQITorsionModeController::initialize(ros::NodeHandle nh,
   torsion_eigens_.resize(mode_num_);
   torsion_mode_matrix_.resize(mode_num_, torsion_num_);
   torsion_B_matrix_.resize(mode_num_, motor_num_);
+  torsion_B_rot_matrix_.resize(3, motor_num_);
 
   link_torsion_sub_ = nh_.subscribe<sensor_msgs::JointState>("link_torsion/joint_states", 1, &HydrusTiltedLQITorsionModeController::linkTorsionCallback, this, ros::TransportHints().tcpNoDelay());
   eigen_sub_ = nh_.subscribe<std_msgs::Float32MultiArray>("torsion_eigens", 1, &HydrusTiltedLQITorsionModeController::torsionEigensCallback, this);
   mode_sub_ = nh_.subscribe<std_msgs::Float32MultiArray>("torsion_mode_matrix", 1, &HydrusTiltedLQITorsionModeController::torsionModeCallback, this);
-  B_sub_ = nh_.subscribe<std_msgs::Float32MultiArray>("torsion_B_matrix", 1, &HydrusTiltedLQITorsionModeController::torsionBCallback, this);
+  B_sub_ = nh_.subscribe<std_msgs::Float32MultiArray>("torsion_B_mode_matrix", 1, &HydrusTiltedLQITorsionModeController::torsionBCallback, this);
+  B_rot_sub_ = nh_.subscribe<std_msgs::Float32MultiArray>("torsion_B_rot_matrix", 1, &HydrusTiltedLQITorsionModeController::torsionBRotCallback, this);
 
   //dynamic reconfigure server
   ros::NodeHandle control_nh(nh_, "controller");
@@ -114,7 +116,15 @@ bool HydrusTiltedLQITorsionModeController::optimalGain()
   for(int i = 0; i < lqi_mode_; i++)
     {
       A_eom(2 * i, 2 * i + 1) = 1;
-      B_eom.row(2 * i + 1) = P_dash.row(i);
+      if (i == 0) {
+        B_eom.row(2 * i + 1) = P_dash.row(i);
+      } else {
+        if (use_rbdl_b_rot_) {
+          B_eom.row(2 * i + 1) = torsion_B_rot_matrix_.row(i-1);
+        } else {
+          B_eom.row(2 * i + 1) = P_dash.row(i);
+        }
+      }
       C_eom(i, 2 * i) = 1;
     }
   A_eom.block(lqi_mode_ * 2, 0, lqi_mode_, lqi_mode_ * 3) = -C_eom;
@@ -139,6 +149,7 @@ bool HydrusTiltedLQITorsionModeController::optimalGain()
 
   ROS_DEBUG_STREAM("mode matrix: " << std::endl << torsion_mode_matrix_);
   ROS_DEBUG_STREAM("torsion B matrix: " << std::endl << torsion_B_matrix_);
+  ROS_DEBUG_STREAM("torsion B rot matrix: " << std::endl << torsion_B_rot_matrix_);
   ROS_DEBUG_STREAM_NAMED("LQI gain generator", "LQI gain generator: A: \n"  <<  A );
   ROS_DEBUG_STREAM_NAMED("LQI gain generator", "LQI gain generator: B: \n"  <<  B );
   ROS_DEBUG_STREAM_NAMED("LQI gain generator", "LQI gain generator: C: \n"  <<  C );
@@ -222,6 +233,7 @@ void HydrusTiltedLQITorsionModeController::rosParamInit()
   ros::NodeHandle control_nh(nh_, "controller");
   ros::NodeHandle lqi_nh(control_nh, "lqi");
 
+  getParam<bool>(lqi_nh, "use_rbdl_b_rot", use_rbdl_b_rot_, 1.0);
   getParam<double>(lqi_nh, "trans_constraint_weight", trans_constraint_weight_, 1.0);
   getParam<double>(lqi_nh, "att_control_weight", att_control_weight_, 1.0);
 
@@ -295,6 +307,22 @@ void HydrusTiltedLQITorsionModeController::torsionBCallback(const std_msgs::Floa
       j++;
     }
     if (j==mode_num_) {
+      break;
+    }
+  }
+}
+
+void HydrusTiltedLQITorsionModeController::torsionBRotCallback(const std_msgs::Float32MultiArrayConstPtr& msg) {
+  int i = 0;
+  int j = 0;
+  for(std::vector<float>::const_iterator it = msg->data.begin(); it != msg->data.end(); ++it) {
+    torsion_B_rot_matrix_(j, i) = *it;
+    i++;
+    if (i==motor_num_) {
+      i = 0;
+      j++;
+    }
+    if (j==3) {
       break;
     }
   }

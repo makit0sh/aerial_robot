@@ -39,7 +39,8 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 
 generate_dynamic_reconfigure_options(
   cfg/LQI.cfg
-  cfg/LQI_torsion.cfg)
+  cfg/LQI_torsion.cfg
+  cfg/torsion_mode.cfg)
 
 catkin_package(
   INCLUDE_DIRS include test

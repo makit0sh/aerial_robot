@@ -20,6 +20,11 @@
 #include <sensor_msgs/JointState.h>
 #include <std_msgs/Float32MultiArray.h>
 
+#include <dynamic_reconfigure/server.h>
+#include <hydrus/torsion_modeConfig.h>
+#define RECONFITURE_TORSION_MODE_FLAG 0
+#define TORSION_CONSTANT 1
+
 using namespace RigidBodyDynamics;
 using namespace RigidBodyDynamics::Math;
 
@@ -39,11 +44,14 @@ class TorsionModeCalculator
     ros::Subscriber torsion_joint_sub_;
     // ros publishers
     ros::Publisher eigen_pub_;
-    ros::Publisher B_pub_;
+    ros::Publisher B_mode_pub_;
+    ros::Publisher B_rot_pub_;
+    ros::Publisher B_trans_pub_;
     ros::Publisher mode_pub_;
 
     Model* model_;
     std::vector<unsigned int> torsion_dof_update_order_;
+    std::vector<unsigned int> joint_dof_update_order_;
 
     bool is_floating_;
     int rotor_num_;
@@ -51,6 +59,9 @@ class TorsionModeCalculator
     double torsion_constant_;
     int mode_num_;
     double eigen_eps_;
+    double m_f_rate_;
+    int link1_rotor_direction_;
+    bool is_root_on_fc_;
 
     std::vector<double> torsions_;
     std::vector<double> torsions_d_;
@@ -60,7 +71,11 @@ class TorsionModeCalculator
     std::vector<double> joints_d_;
     void jointsCallback(const sensor_msgs::JointStateConstPtr& msg);
 
-    std::vector<unsigned int> get_torsion_dof_update_order();
+    std::vector<unsigned int> get_torsion_dof_update_order(std::string name_prefix="torsion_dummy", int start_num=1);
+
+    dynamic_reconfigure::Server<hydrus::torsion_modeConfig>::CallbackType reconf_func_;
+    dynamic_reconfigure::Server<hydrus::torsion_modeConfig>* reconf_server_;
+    void cfgCallback(hydrus::torsion_modeConfig& config, uint32_t level);
 };
 
 

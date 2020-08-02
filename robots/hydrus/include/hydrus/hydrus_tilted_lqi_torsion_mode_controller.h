@@ -99,13 +99,16 @@ namespace aerial_robot_control
     std::vector<double> torsions_;
     std::vector<double> torsions_d_;
 
-    ros::Subscriber eigen_sub_, mode_sub_, B_sub_;
+    ros::Subscriber eigen_sub_, mode_sub_, B_sub_, B_rot_sub_;
     std::vector<double> torsion_eigens_;
+    bool use_rbdl_b_rot_;
     Eigen::MatrixXd torsion_mode_matrix_;
     Eigen::MatrixXd torsion_B_matrix_;
+    Eigen::MatrixXd torsion_B_rot_matrix_;
     void torsionEigensCallback(const std_msgs::Float32MultiArrayConstPtr& msg);
     void torsionModeCallback(const std_msgs::Float32MultiArrayConstPtr& msg);
     void torsionBCallback(const std_msgs::Float32MultiArrayConstPtr& msg);
+    void torsionBRotCallback(const std_msgs::Float32MultiArrayConstPtr& msg);
 
     ros::ServiceServer q_mu_srv_;
     ros::ServiceServer q_mu_d_srv_;

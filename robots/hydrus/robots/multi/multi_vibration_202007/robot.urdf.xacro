@@ -6,12 +6,18 @@
 
   <xacro:arg name="links" default="8"/>
   <xacro:arg name="fix_rotor" default="0"/>
+  <xacro:arg name="root_on_fc" default="0"/>
   <xacro:arg name="tilt_mode" default="1"/>
   <xacro:arg name="tilt_angle" default="20"/>
 
   <!-- basic kinematics model -->
   <xacro:include filename="$(find hydrus)/urdf/common.xacro" />
-  <xacro:include filename="$(find hydrus)/urdf/link.urdf.xacro" />
+  <xacro:unless value="${$(arg root_on_fc)==1}">
+    <xacro:include filename="$(find hydrus)/urdf/link.urdf.xacro" />
+  </xacro:unless>
+  <xacro:if value="${$(arg root_on_fc)==1}">
+    <xacro:include filename="$(find hydrus)/urdf/link_root_on_fc.urdf.xacro" />
+  </xacro:if>
 
   <xacro:if value="$(arg sim)">
     <xacro:macro name="loop_link_sim" params="links_qty">
