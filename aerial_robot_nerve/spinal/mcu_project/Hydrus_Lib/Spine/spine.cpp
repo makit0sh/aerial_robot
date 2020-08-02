@@ -162,8 +162,9 @@ namespace Spine
     /* Tongtybj: TODO not good case processing */
     if(gimbal_servo_num == 0)
         {
-          if(slave_num_ < 6) uav_model_ = spinal::UavInfo::HYDRUS; // less than hex
-          else uav_model_ = spinal::UavInfo::HYDRUS_XI;
+          // if(slave_num_ < 6) 
+          uav_model_ = spinal::UavInfo::HYDRUS; // less than hex
+          // else uav_model_ = spinal::UavInfo::HYDRUS_XI;
         }
    if(gimbal_servo_num  == slave_num_)
         {
