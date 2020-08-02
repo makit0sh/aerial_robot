@@ -6,6 +6,7 @@
   <arg name="robot_ns" default="hydrus" />
   <arg name="links" default="6" />
   <arg name="robot_model" />
+  <arg name="mocap_for_torsion" default="false" />
 
   <group ns="$(arg robot_ns)">
 
@@ -19,6 +20,10 @@
 
         <!-- mocap -->
         <include file="$(find aerial_robot_base)/launch/external_module/mocap.launch" />
+
+        <group if="$(arg mocap_for_torsion)">
+          <include file="$(find hydrus)/launch/includes/multi_vibration_202007/mocap.launch" />
+        </group>
 
         <!-- leddar one -->
         <include file="$(find leddar_one)/launch/leddar_one.launch" >
@@ -40,6 +45,7 @@
       <param name="rate" value="30"/>
       <param name="links" value="$(arg links)"/>
       <param name="robot_name" value="$(arg robot_ns)"/>
+      <param name="use_mocap" value="$(arg mocap_for_torsion)"/>
     </node>
 
     <node pkg="hydrus" type="torsion_mode_calculator" name="torsion_mode_calculator" output="screen">

@@ -4,7 +4,7 @@ import time
 import rospy
 import tf
 from sensor_msgs.msg import JointState, Imu
-from geometry_msgs.msg import Vector3Stamped
+from geometry_msgs.msg import Vector3Stamped, PoseStamped
 from tf.transformations import quaternion_from_euler, euler_from_quaternion, quaternion_multiply, quaternion_inverse
 
 
@@ -16,15 +16,21 @@ class NeuronAttitude2Torsion(object):
         self.links_ = rospy.get_param("~links", 6)
         self.update_rate_ = rospy.get_param("~rate", 30)
         self.simulation_ = rospy.get_param("~simulation", True)
+        self.use_mocap_ = rospy.get_param("~use_mocap", False)
 
         self.tfl_ = tf.TransformListener()
 
-        self.neuron_subs_ = []
-        for i in range(self.links_):
-            if self.simulation_:
-                self.neuron_subs_.append(rospy.Subscriber("/"+self.robot_name_+"/neuron"+str(i+1)+"_imu", Imu, self.imu_callback, [i]))
-            else:
-                self.neuron_subs_.append(rospy.Subscriber("/"+self.robot_name_+"/neuron"+str(i+1)+"_attitude", Vector3Stamped, self.attitude_callback, [i]))
+        if not self.use_mocap_:
+            self.neuron_subs_ = []
+            for i in range(self.links_):
+                if self.simulation_:
+                    self.neuron_subs_.append(rospy.Subscriber("/"+self.robot_name_+"/neuron"+str(i+1)+"_imu", Imu, self.imu_callback, [i]))
+                else:
+                    self.neuron_subs_.append(rospy.Subscriber("/"+self.robot_name_+"/neuron"+str(i+1)+"_attitude", Vector3Stamped, self.attitude_callback, [i]))
+        else:
+            self.mocap_subs_ = []
+            for i in range(self.links_):
+                self.mocap_subs_.append(rospy.Subscriber("/"+self.robot_name_+"/mocap/link"+str(i+1)+"/pose", PoseStamped, self.mocap_callback, [i]))
 
         self.neuron_num_ = self.links_
         self.attitudes_ = [[0.0, 0.0, 0.0]]*self.neuron_num_
@@ -58,6 +64,11 @@ class NeuronAttitude2Torsion(object):
     def imu_callback(self, msg, args):
         idx = args[0]
         euler_ori = euler_from_quaternion([msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w])
+        self.attitudes_[idx-1] = euler_ori
+
+    def mocap_callback(self, msg, args):
+        idx = args[0]
+        euler_ori = euler_from_quaternion([msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z, msg.pose.orientation.w])
         self.attitudes_[idx-1] = euler_ori
 
 class AdjacentAttDiffEstimator(NeuronAttitude2Torsion):
