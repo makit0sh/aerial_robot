@@ -1,0 +1,141 @@
+<?xml version="1.0"?>
+<robot
+    xmlns:xacro="http://www.ros.org/wiki/xacro" name="hydrus" >
+
+  <xacro:arg name="robot_name" default="hydrus" />
+
+  <xacro:arg name="sim" default="false"/>
+  <xacro:arg name="fix_rotor" default="0"/>
+
+  <!-- robot urdf -->
+  <xacro:include filename="$(find hydrus)/robots/hex/hex_vibration_202004/robot.urdf.xacro" />
+
+  <!-- gazebo plugin for default controller and sensors -->
+  <xacro:include filename="$(find aerial_robot_simulation)/xacro/spinal.gazebo.xacro" />
+  <xacro:gazebo_spinal robot_name="$(arg robot_name)" />
+
+  <xacro:if value="$(arg sim)">
+    <gazebo>
+      <!-- joint torsional spring plugin -->
+      <plugin name="torsion1_torsional_spring" filename="libjoint_torsional_spring_plugin.so">
+        <kx>10</kx>
+        <set_point>0</set_point>
+        <joint>torsion1</joint>
+      </plugin>
+      <plugin name="torsion2_torsional_spring" filename="libjoint_torsional_spring_plugin.so">
+        <kx>10</kx>
+        <set_point>0</set_point>
+        <joint>torsion2</joint>
+      </plugin>
+      <plugin name="torsion3_torsional_spring" filename="libjoint_torsional_spring_plugin.so">
+        <kx>10</kx>
+        <set_point>0</set_point>
+        <joint>torsion3</joint>
+      </plugin>
+      <plugin name="torsion4_torsional_spring" filename="libjoint_torsional_spring_plugin.so">
+        <kx>10</kx>
+        <set_point>0</set_point>
+        <joint>torsion4</joint>
+      </plugin>
+      <plugin name="torsion5_torsional_spring" filename="libjoint_torsional_spring_plugin.so">
+        <kx>10</kx>
+        <set_point>0</set_point>
+        <joint>torsion5</joint>
+      </plugin>
+    </gazebo>
+    <gazebo>
+      <plugin name="torsion_joint_state_publisher" filename="libgazebo_ros_joint_state_publisher.so">
+        <robotNamespace>/$(arg robot_name)/link_torsion_groundtruth</robotNamespace>
+        <jointName>torsion1, torsion2, torsion3, torsion4, torsion5</jointName>
+        <!-- <robotNamespace>/$(arg robot_name)/link_torsion</robotNamespace> -->
+        <!-- <jointName>torsion3_r</jointName> -->
+        <updateRate>50.0</updateRate>
+        <alwaysOn>true</alwaysOn>
+      </plugin>
+    </gazebo>
+  </xacro:if>
+
+  <!-- neuron imu plugin -->
+  <gazebo reference="neuron1_imu">
+    <gravity>true</gravity>
+    <sensor name="neuron1_imu" type="imu">
+      <always_on>true</always_on>
+      <update_rate>100</update_rate>
+      <visualize>true</visualize>
+      <topic>__default_topic__</topic>
+      <plugin filename="libgazebo_ros_imu_sensor.so" name="imu_plugin">
+        <topicName>/$(arg robot_name)/neuron1_imu</topicName>
+        <bodyName>neuron1_imu</bodyName>
+        <updateRateHZ>200.0</updateRateHZ>
+        <gaussianNoise>0.001</gaussianNoise>
+        <xyzOffset>0 0 0</xyzOffset>
+        <rpyOffset>0 0 0</rpyOffset>
+        <frameName>neuron1_imu</frameName>
+      </plugin>
+      <pose>0 0 0 0 0 0</pose>
+    </sensor>
+  </gazebo>
+  <gazebo reference="fc">
+    <gravity>true</gravity>
+    <sensor name="main_imu" type="imu">
+      <always_on>true</always_on>
+      <update_rate>100</update_rate>
+      <visualize>true</visualize>
+      <topic>__default_topic__</topic>
+      <plugin filename="libgazebo_ros_imu_sensor.so" name="imu_plugin">
+        <topicName>/$(arg robot_name)/main_imu</topicName>
+        <bodyName>main_imu</bodyName>
+        <updateRateHZ>200.0</updateRateHZ>
+        <gaussianNoise>0.001</gaussianNoise>
+        <xyzOffset>0 0 0</xyzOffset>
+        <rpyOffset>0 0 0</rpyOffset>
+        <frameName>fc</frameName>
+      </plugin>
+      <pose>0 0 0 0 0 0</pose>
+    </sensor>
+  </gazebo>
+  <gazebo reference="neuron6_imu">
+    <gravity>true</gravity>
+    <sensor name="neuron6_imu" type="imu">
+      <always_on>true</always_on>
+      <update_rate>100</update_rate>
+      <visualize>true</visualize>
+      <topic>__default_topic__</topic>
+      <plugin filename="libgazebo_ros_imu_sensor.so" name="imu_plugin">
+        <topicName>/$(arg robot_name)/neuron6_imu</topicName>
+        <bodyName>neuron6_imu</bodyName>
+        <updateRateHZ>200.0</updateRateHZ>
+        <gaussianNoise>0.001</gaussianNoise>
+        <xyzOffset>0 0 0</xyzOffset>
+        <rpyOffset>0 0 0</rpyOffset>
+        <frameName>neuron6_imu</frameName>
+      </plugin>
+      <pose>0 0 0 0 0 0</pose>
+    </sensor>
+  </gazebo>
+  <!-- end of neuron imu plugin -->
+
+  <!-- publish real position of neurons -->
+  <gazebo>
+    <!-- TODO neuron?_imu does not work as bodyName why? -->
+    <plugin filename="libgazebo_ros_p3d.so" name="neuron1_groundtruth">
+      <bodyName>thrust1</bodyName>
+      <topicName>/$(arg robot_name)/neuron1_groundtruth</topicName>
+      <updateRate>50</updateRate>
+      <gaussianNoise>0.005</gaussianNoise>
+      <xyzOffset>0 0 0</xyzOffset>
+      <rpyOffset>0 0 0</rpyOffset>
+      <frameName>world</frameName>
+    </plugin>
+    <plugin filename="libgazebo_ros_p3d.so" name="neuron6_groundtruth">
+      <bodyName>thrust6</bodyName>
+      <topicName>/$(arg robot_name)/neuron6_groundtruth</topicName>
+      <updateRate>50</updateRate>
+      <gaussianNoise>0.005</gaussianNoise>
+      <xyzOffset>0 0 0</xyzOffset>
+      <rpyOffset>0 0 0</rpyOffset>
+      <frameName>world</frameName>
+    </plugin>
+  </gazebo>
+  <!-- end of publish real position of neurons -->
+</robot>
