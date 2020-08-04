@@ -5,7 +5,7 @@
 
   <!-- Servo controllers-->
   <group ns="servo_controller/joints/controller$(arg nr)">
-    <param name="id" value="$(arg nr)"/>
+    <param name="id" value="$(eval arg('nr')-1)"/>
     <param name="name" value="joint$(arg nr)"/>
     <param name="simulation/init_value" value="$(eval 3.13*2/arg('links'))"/>
   </group>
