@@ -84,6 +84,7 @@ namespace aerial_robot_control
     double torsional_spring_constant_;
     int torsion_num_; 
     int mode_num_;
+    double init_wait_time_;
 
     std::vector<double> q_mu_;
     std::vector<double> q_mu_d_;

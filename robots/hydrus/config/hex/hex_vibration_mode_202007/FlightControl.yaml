@@ -36,6 +36,7 @@ controller:
   # LQI gain generator
   lqi:
     gain_generate_rate: 15.0
+    init_wait_time: 5
     gyro_moment_compensation: false
     clamp_gain: true
 

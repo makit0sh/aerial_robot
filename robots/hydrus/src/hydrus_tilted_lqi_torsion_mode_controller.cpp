@@ -28,11 +28,11 @@ void HydrusTiltedLQITorsionModeController::initialize(ros::NodeHandle nh,
   torsion_B_matrix_.resize(mode_num_, motor_num_);
   torsion_B_rot_matrix_.resize(3, motor_num_);
 
-  link_torsion_sub_ = nh_.subscribe<sensor_msgs::JointState>("link_torsion/joint_states", 1, &HydrusTiltedLQITorsionModeController::linkTorsionCallback, this, ros::TransportHints().tcpNoDelay());
-  eigen_sub_ = nh_.subscribe<std_msgs::Float32MultiArray>("torsion_eigens", 1, &HydrusTiltedLQITorsionModeController::torsionEigensCallback, this);
-  mode_sub_ = nh_.subscribe<std_msgs::Float32MultiArray>("torsion_mode_matrix", 1, &HydrusTiltedLQITorsionModeController::torsionModeCallback, this);
-  B_sub_ = nh_.subscribe<std_msgs::Float32MultiArray>("torsion_B_mode_matrix", 1, &HydrusTiltedLQITorsionModeController::torsionBCallback, this);
-  B_rot_sub_ = nh_.subscribe<std_msgs::Float32MultiArray>("torsion_B_rot_matrix", 1, &HydrusTiltedLQITorsionModeController::torsionBRotCallback, this);
+  link_torsion_sub_ = nh_.subscribe<sensor_msgs::JointState>("link_torsion/joint_states", 10, &HydrusTiltedLQITorsionModeController::linkTorsionCallback, this);
+  eigen_sub_ = nh_.subscribe<std_msgs::Float32MultiArray>("torsion_eigens", 10, &HydrusTiltedLQITorsionModeController::torsionEigensCallback, this);
+  mode_sub_ = nh_.subscribe<std_msgs::Float32MultiArray>("torsion_mode_matrix", 10, &HydrusTiltedLQITorsionModeController::torsionModeCallback, this);
+  B_sub_ = nh_.subscribe<std_msgs::Float32MultiArray>("torsion_B_mode_matrix", 10, &HydrusTiltedLQITorsionModeController::torsionBCallback, this);
+  B_rot_sub_ = nh_.subscribe<std_msgs::Float32MultiArray>("torsion_B_rot_matrix", 10, &HydrusTiltedLQITorsionModeController::torsionBRotCallback, this);
 
   //dynamic reconfigure server
   ros::NodeHandle control_nh(nh_, "controller");
@@ -44,6 +44,8 @@ void HydrusTiltedLQITorsionModeController::initialize(ros::NodeHandle nh,
   // service server
   q_mu_srv_ = nhp_.advertiseService("set_q_mu", &HydrusTiltedLQITorsionModeController::setQMuCallback, this);
   q_mu_d_srv_ = nhp_.advertiseService("set_q_mu_d", &HydrusTiltedLQITorsionModeController::setQMuDCallback, this);
+
+  ros::Duration(init_wait_time_).sleep(); // sleep for a second
 }
 
 HydrusTiltedLQITorsionModeController::~HydrusTiltedLQITorsionModeController()
@@ -239,6 +241,7 @@ void HydrusTiltedLQITorsionModeController::rosParamInit()
 
   getParam<double>(lqi_nh, "torsional_spring_constant", torsional_spring_constant_, 1.0);
   getParam<int>(lqi_nh, "mode_num", mode_num_, motor_num_-4);
+  getParam<double>(lqi_nh, "init_wait_time", init_wait_time_, 1.0);
 
   lqi_nh.getParam("q_mu", q_mu_);
   lqi_nh.getParam("q_mu_d", q_mu_d_);

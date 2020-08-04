@@ -96,7 +96,7 @@
     <arg name="robot_ns" value="$(arg robot_ns)" />
     <arg name="links" value="$(arg links)" if="$(eval arg('type')=='multi')"/>
     <arg name="robot_model" value="$(arg robot_model)" if="$(eval arg('type')=='multi' or arg('type')=='hex')"/>
-    <arg name="mocap_for_torsion" value="$(arg mocap_for_torsion)" if="$(eval arg('type')=='multi')"/>
+    <arg name="mocap_for_torsion" value="$(arg mocap_for_torsion)" if="$(eval arg('type')=='multi' or arg('type')=='hex')"/>
   </include>
 
   ###########  Servo Bridge  ###########
