@@ -22,7 +22,9 @@
         <include file="$(find aerial_robot_base)/launch/external_module/mocap.launch" />
 
         <group if="$(arg mocap_for_torsion)">
-          <include file="$(find hydrus)/launch/includes/multi_vibration_202007/mocap.launch" />
+          <include file="$(find hydrus)/launch/includes/hex_vibration_mode_202007/mocap.launch" >
+            <arg name="throttle" value="30"/>
+	  </include>
         </group>
 
         <!-- leddar one -->

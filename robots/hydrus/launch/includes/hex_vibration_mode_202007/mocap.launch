@@ -1,4 +1,6 @@
 <launch>
+  <arg name="throttle" default="30" />
+
   <node pkg="mocap_optitrack"
     type="mocap_node"
     name="link_mocap_node"
@@ -42,5 +44,11 @@
                239.255.42.99
     </rosparam>
   </node>
+
+  <node name="link1_mocap_pose_throttler" type="throttle" pkg="topic_tools" args="messages mocap/link1/pose $(arg throttle) mocap/link1/pose_throttled" />
+  <node name="link2_mocap_pose_throttler" type="throttle" pkg="topic_tools" args="messages mocap/link2/pose $(arg throttle) mocap/link2/pose_throttled" />
+  <node name="link3_mocap_pose_throttler" type="throttle" pkg="topic_tools" args="messages mocap/link3/pose $(arg throttle) mocap/link3/pose_throttled" />
+  <node name="link4_mocap_pose_throttler" type="throttle" pkg="topic_tools" args="messages mocap/link4/pose $(arg throttle) mocap/link4/pose_throttled" />
+  <node name="link5_mocap_pose_throttler" type="throttle" pkg="topic_tools" args="messages mocap/link5/pose $(arg throttle) mocap/link5/pose_throttled" />
 
 </launch>

@@ -20,6 +20,13 @@ class NeuronAttitude2Torsion(object):
 
         self.tfl_ = tf.TransformListener()
 
+        self.neuron_num_ = self.links_
+        self.attitudes_ = [[0.0, 0.0, 0.0]]*self.neuron_num_
+        self.spinal_attitude_ = [0.0]*3
+        self.spinal_imu_sub_ = rospy.Subscriber("/"+self.robot_name_+"/attitude", Vector3Stamped, self.spinal_callback)
+
+        self.jointstate_pub_ = rospy.Publisher("/"+self.robot_name_+"/link_torsion/joint_states", JointState, queue_size=5)
+
         if not self.use_mocap_:
             self.neuron_subs_ = []
             for i in range(self.links_):
@@ -30,14 +37,7 @@ class NeuronAttitude2Torsion(object):
         else:
             self.mocap_subs_ = []
             for i in range(self.links_):
-                self.mocap_subs_.append(rospy.Subscriber("/"+self.robot_name_+"/mocap/link"+str(i+1)+"/pose", PoseStamped, self.mocap_callback, [i]))
-
-        self.neuron_num_ = self.links_
-        self.attitudes_ = [[0.0, 0.0, 0.0]]*self.neuron_num_
-        self.spinal_attitude_ = [0.0]*3
-        self.spinal_imu_sub_ = rospy.Subscriber("/"+self.robot_name_+"/attitude", Vector3Stamped, self.spinal_callback)
-
-        self.jointstate_pub_ = rospy.Publisher("/"+self.robot_name_+"/link_torsion/joint_states", JointState, queue_size=5)
+                self.mocap_subs_.append(rospy.Subscriber("/"+self.robot_name_+"/mocap/link"+str(i+1)+"/pose_throttled", PoseStamped, self.mocap_callback, [i]))
 
     def execute():
         pass
