@@ -5,6 +5,7 @@ import rospy
 import tf
 from sensor_msgs.msg import JointState, Imu
 from geometry_msgs.msg import Vector3Stamped, PoseStamped
+from nav_msgs.msg import Odometry
 from tf.transformations import quaternion_from_euler, euler_from_quaternion, quaternion_multiply, quaternion_inverse
 
 
@@ -37,7 +38,10 @@ class NeuronAttitude2Torsion(object):
         else:
             self.mocap_subs_ = []
             for i in range(self.links_):
-                self.mocap_subs_.append(rospy.Subscriber("/"+self.robot_name_+"/mocap/link"+str(i+1)+"/pose_throttled", PoseStamped, self.mocap_callback, [i]))
+                if self.simulation_:
+                    self.mocap_subs_.append(rospy.Subscriber("/"+self.robot_name_+"/neuron"+str(i+1)+"_groundtruth", Odometry, self.odom_callback, [i]))
+                else:
+                    self.mocap_subs_.append(rospy.Subscriber("/"+self.robot_name_+"/mocap/link"+str(i+1)+"/pose_throttled", PoseStamped, self.mocap_callback, [i]))
 
     def execute():
         pass
@@ -69,6 +73,11 @@ class NeuronAttitude2Torsion(object):
     def mocap_callback(self, msg, args):
         idx = args[0]
         euler_ori = euler_from_quaternion([msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z, msg.pose.orientation.w])
+        self.attitudes_[idx-1] = euler_ori
+
+    def odom_callback(self, msg, args):
+        idx = args[0]
+        euler_ori = euler_from_quaternion([msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w])
         self.attitudes_[idx-1] = euler_ori
 
 class AdjacentAttDiffEstimator(NeuronAttitude2Torsion):

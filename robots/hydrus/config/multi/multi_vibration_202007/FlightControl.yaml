@@ -35,7 +35,7 @@ controller:
 
   # LQI gain generator
   lqi:
-    gain_generate_rate: 15.0
+    gain_generate_rate: 30.0
     gyro_moment_compensation: false
     clamp_gain: true
 
@@ -69,9 +69,9 @@ controller:
     att_control_weight: 1
 
     # torsion_control torsional_spring_constant: 50.0
-    mode_num: 2
-    q_mu: [1, 0.1]
-    q_mu_d: [1, 0.01]
+    mode_num: 3
+    q_mu: [1, 1, 1]
+    q_mu_d: [1, 1, 1]
     use_rbdl_b_rot: false
     # mode_num: 4
     # q_mu: [1, 1, 1, 1]

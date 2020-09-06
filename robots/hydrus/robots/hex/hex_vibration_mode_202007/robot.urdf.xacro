@@ -141,6 +141,50 @@
           izz="0.000002"/>
     </inertial>
   </xacro:extra_module>
+  <xacro:extra_module name = "neuron2_imu" parent = "link2">
+    <origin xyz="${0.03} 0 ${0.02}" rpy="0 0 0"/>
+    <inertial>
+      <mass value = "0.00001" />
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia
+          ixx="0.000001" ixy="0.0" ixz="0.0"
+          iyy="0.000001" iyz="0.0"
+          izz="0.000002"/>
+    </inertial>
+  </xacro:extra_module>
+  <xacro:extra_module name = "neuron3_imu" parent = "link3">
+    <origin xyz="${0.03} 0 ${0.02}" rpy="0 0 0"/>
+    <inertial>
+      <mass value = "0.00001" />
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia
+          ixx="0.000001" ixy="0.0" ixz="0.0"
+          iyy="0.000001" iyz="0.0"
+          izz="0.000002"/>
+    </inertial>
+  </xacro:extra_module>
+  <xacro:extra_module name = "neuron4_imu" parent = "link4">
+    <origin xyz="${0.03} 0 ${0.02}" rpy="0 0 0"/>
+    <inertial>
+      <mass value = "0.00001" />
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia
+          ixx="0.000001" ixy="0.0" ixz="0.0"
+          iyy="0.000001" iyz="0.0"
+          izz="0.000002"/>
+    </inertial>
+  </xacro:extra_module>
+  <xacro:extra_module name = "neuron5_imu" parent = "link5">
+    <origin xyz="${0.03} 0 ${0.02}" rpy="0 0 0"/>
+    <inertial>
+      <mass value = "0.00001" />
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia
+          ixx="0.000001" ixy="0.0" ixz="0.0"
+          iyy="0.000001" iyz="0.0"
+          izz="0.000002"/>
+    </inertial>
+  </xacro:extra_module>
   <xacro:extra_module name = "neuron6_imu" parent = "link6">
     <origin xyz="${link_length - 0.03} 0 ${0.02}" rpy="0 0 0"/>
     <inertial>
