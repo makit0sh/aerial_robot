@@ -1,18 +1,5 @@
 #include<hydrus/torsion_mode_calculator.h>
 
-std::string get_body_name (const RigidBodyDynamics::Model &model, unsigned int body_id) {
-  if (model.mBodies[body_id].mIsVirtual) {
-    // if there is not a unique child we do not know what to do...
-    if (model.mu[body_id].size() != 1)
-      return "";
-
-    return get_body_name (model, model.mu[body_id][0]);
-  }
-
-  return model.GetBodyName(body_id);
-}
-
-
 TorsionModeCalculator::TorsionModeCalculator(ros::NodeHandle nh, ros::NodeHandle nhp)
 :nh_(nh), nhp_(nhp)
 {
@@ -43,8 +30,8 @@ TorsionModeCalculator::TorsionModeCalculator(ros::NodeHandle nh, ros::NodeHandle
   }
   ROS_DEBUG_STREAM("Degree of freedom overview:" << Utils::GetModelDOFOverview(*model_));
   if (is_root_on_fc_ == false) {
-    torsion_dof_update_order_ = get_torsion_dof_update_order();
-    joint_dof_update_order_ = get_torsion_dof_update_order("link", 2);
+    torsion_dof_update_order_ = rbdl_util::get_torsion_dof_update_order(model_, torsion_num_);
+    joint_dof_update_order_ = rbdl_util::get_torsion_dof_update_order(model_, torsion_num_, "link", 2);
   } else {
     torsion_dof_update_order_ = std::vector<unsigned int>{9, 7, 10, 12, 14};  //TODO remove, only for debug
     joint_dof_update_order_ = std::vector<unsigned int>{6, 8, 11, 13, 15};  //TODO remove, only for debug
@@ -60,6 +47,7 @@ TorsionModeCalculator::TorsionModeCalculator(ros::NodeHandle nh, ros::NodeHandle
   B_trans_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("torsion_B_trans_matrix", 100);
   B_rot_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("torsion_B_rot_matrix", 100);
   mode_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("torsion_mode_matrix", 100);
+  K_sys_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("torsion_K_sys_matrix", 100);
 
   // dynamic reconfigure
   reconf_server_ = new dynamic_reconfigure::Server<hydrus::torsion_modeConfig>(nhp_);
@@ -71,30 +59,7 @@ TorsionModeCalculator::~TorsionModeCalculator() {
   delete model_;
 }
 
-std::vector<unsigned int> TorsionModeCalculator::get_torsion_dof_update_order(std::string name_prefix, int start_num) {
-  std::vector<unsigned int> torsion_dof_update_order(torsion_num_);
-  unsigned int q_index = 0;
-  for (unsigned int i = 1; i < model_->mBodies.size(); i++) {
-    std::string body_name = get_body_name(*model_, i);
-    if (model_->mJoints[i].mDoFCount == 1) {
-      if (body_name.find(name_prefix) == 0) {
-        torsion_dof_update_order.at(std::stoi(body_name.substr(name_prefix.size()))-start_num) = q_index;
-      }
-      q_index++;
-    } else {
-      for (unsigned int j = 0; j < model_->mJoints[i].mDoFCount; j++) {
-        if (body_name.find(name_prefix) == 0) {
-          torsion_dof_update_order.at(std::stoi(body_name.substr(name_prefix.size()))-start_num) = q_index;
-        }
-        q_index++;
-      }
-    }
-  }
-  return torsion_dof_update_order;
-}
-
-void TorsionModeCalculator::cfgCallback(hydrus::torsion_modeConfig &config, uint32_t level)
-{
+void TorsionModeCalculator::cfgCallback(hydrus::torsion_modeConfig &config, uint32_t level) {
   if(config.torsion_mode_flag)
   {
     printf("Torsion Mode Param:");
@@ -114,7 +79,8 @@ void TorsionModeCalculator::cfgCallback(hydrus::torsion_modeConfig &config, uint
 void TorsionModeCalculator::torsionJointCallback(const sensor_msgs::JointStateConstPtr& msg) {
   if (torsion_num_<=0) return;
   copy(msg->position.begin(), msg->position.end(), torsions_.begin());
-  copy(msg->velocity.begin(), msg->velocity.end(), torsions_d_.begin()); }
+  copy(msg->velocity.begin(), msg->velocity.end(), torsions_d_.begin()); 
+}
 
 void TorsionModeCalculator::jointsCallback(const sensor_msgs::JointStateConstPtr& msg) {
   if (torsion_num_<=0) return;
@@ -128,7 +94,6 @@ void TorsionModeCalculator::calculate() {
 
   VectorNd Q = VectorNd::Zero (model_->q_size);
   VectorNd QDot = VectorNd::Zero (model_->qdot_size);
-  VectorNd Tau = VectorNd::Zero (model_->qdot_size);
   VectorNd QDDot = VectorNd::Zero (model_->qdot_size);
 
   // map torsion to model Q and QDot
@@ -256,8 +221,8 @@ void TorsionModeCalculator::calculate() {
   ROS_DEBUG_STREAM("B mode selected: " <<std::endl<< B_selected);
 
   // publish results
-  std_msgs::Float32MultiArray eigen_msg, B_msg, mode_msg, B_rot_msg;
-  eigen_msg.data.clear(); B_msg.data.clear(); mode_msg.data.clear();
+  std_msgs::Float32MultiArray eigen_msg, B_msg, mode_msg, B_rot_msg, K_sys_msg;
+  eigen_msg.data.clear(); B_msg.data.clear(); mode_msg.data.clear(); K_sys_msg.data.clear();
   for (int i = 0; i < mode_num_; ++i) {
     eigen_msg.data.push_back(sorted_mode_eigen_idx_pair[i].first);
     for (int j = 0; j < torsion_num_; ++j) {
@@ -269,9 +234,15 @@ void TorsionModeCalculator::calculate() {
       B_msg.data.push_back(B_selected(i,j));
     }
   }
+  for (int i = 0; i < K.rows(); ++i) {
+    for (int j = 0; j < K.cols(); ++j) {
+      K_sys_msg.data.push_back(K(i,j));
+    }
+  }
   eigen_pub_.publish(eigen_msg);
   B_mode_pub_.publish(B_msg);
   mode_pub_.publish(mode_msg);
+  K_sys_pub_.publish(K_sys_msg);
 
   if (is_floating_) {
     for (int i = 0; i < q_joint_bias/2; ++i) {

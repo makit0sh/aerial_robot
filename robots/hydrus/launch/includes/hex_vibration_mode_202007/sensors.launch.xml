@@ -41,14 +41,24 @@
     <rosparam file="$(find aerial_robot_base)/config/sensors/mocap.yaml" command="load" />
     <rosparam file="$(find aerial_robot_base)/config/sensors/altmeter/leddar_one.yaml" command="load" />
 
-    <node pkg='hydrus' type='neuronAttitude2Torsion.py' name='imu2jointstate' output='screen'>
-      <param name="simulation" value="$(arg simulation)"/>
-      <param name="mode" value="adj"/>
-      <param name="rate" value="60"/>
-      <param name="links" value="$(arg links)"/>
-      <param name="robot_name" value="$(arg robot_ns)"/>
-      <param name="use_mocap" value="$(arg mocap_for_torsion)"/>
-    </node>
+    <!-- <node pkg='hydrus' type='neuronAttitude2Torsion.py' name='imu2jointstate' output='screen'> -->
+    <!--   <param name="simulation" value="$(arg simulation)"/> -->
+    <!--   <param name="mode" value="adj"/> -->
+    <!--   <param name="rate" value="10"/> -->
+    <!--   <param name="links" value="$(arg links)"/> -->
+    <!--   <param name="robot_name" value="$(arg robot_ns)"/> -->
+    <!--   <param name="use_mocap" value="$(arg mocap_for_torsion)"/> -->
+    <!-- </node> -->
+      <!-- <remap from="/$(arg robot_ns)/link_torsion/joint_states" to="/$(arg robot_ns)/imu2jointstate/joint_states"/> -->
+    <!-- </node> -->
+
+    <include file="$(find hydrus)/launch/includes/hex_vibration_mode_202007/torsion_estimator.launch" >
+      <arg name="links" value="$(arg links)" />
+      <arg name="robot_ns" value="$(arg robot_ns)" />
+      <arg name="robot_model" value="$(arg robot_model)" />
+      <arg name="simulation" value="$(arg simulation)" />
+      <arg name="mocap_for_torsion" value="$(arg mocap_for_torsion)" />
+    </include>
 
     <node pkg="hydrus" type="torsion_mode_calculator" name="torsion_mode_calculator" output="screen">
       <param name="robot_description_control" command="$(find xacro)/xacro.py '$(arg robot_model)' robot_name:=$(arg robot_ns) links:=$(arg links) sim:=true fix_rotor:=1"/>

@@ -3,6 +3,7 @@
 import time
 import rospy
 import tf
+import numpy as np
 from sensor_msgs.msg import JointState, Imu
 from geometry_msgs.msg import Vector3Stamped, PoseStamped
 from nav_msgs.msg import Odometry
@@ -23,6 +24,7 @@ class NeuronAttitude2Torsion(object):
 
         self.neuron_num_ = self.links_
         self.attitudes_ = [[0.0, 0.0, 0.0]]*self.neuron_num_
+        self.omega_= [[0.0, 0.0, 0.0]]*self.neuron_num_
         self.spinal_attitude_ = [0.0]*3
         self.spinal_imu_sub_ = rospy.Subscriber("/"+self.robot_name_+"/attitude", Vector3Stamped, self.spinal_callback)
 
@@ -49,6 +51,13 @@ class NeuronAttitude2Torsion(object):
     def tf2quat(self, transform):
         return transform[1]
 
+    def q2Rmat(self, q):
+        x,y,z,w = q
+        Rmat = np.matrix([ [x*x-y*y-z*z+w*w, 2.0*(x*y-w*z), 2.0*(x*z+w*y) ],\
+                  [2.0*(x*y+w*z), y*y+w*w-x*x-z*z, 2.0*(y*z-w*x)],\
+                  [2.0*(x*z-w*y),  2.0*(y*z+w*x), z*z+w*w-x*x-y*y]] )
+        return Rmat
+
     def getUpdateRate(self):
         return self.update_rate_
 
@@ -69,6 +78,7 @@ class NeuronAttitude2Torsion(object):
         idx = args[0]
         euler_ori = euler_from_quaternion([msg.orientation.x, msg.orientation.y, msg.orientation.z, msg.orientation.w])
         self.attitudes_[idx-1] = euler_ori
+        self.omega_[idx-1] = [msg.angular_velocity.x, msg.angular_velocity.y, msg.angular_velocity.z]
 
     def mocap_callback(self, msg, args):
         idx = args[0]
@@ -121,6 +131,15 @@ class AdjacentAttDiffEstimator(NeuronAttitude2Torsion):
             jointstate.effort.append(0.0)
             self.torsion_prev_[i] = torsion
             self.torsion_vel_prev_[i] = torsion_vel
+
+        R_omega = np.zeros((3*self.torsion_num_, 3*self.torsion_num_))
+        for i in range(self.torsion_num_):
+            R_ci = self.q2Rmat(att_quats[i])
+            R_omega[3*i:, 3*i:3*(i+1)] = np.tile(R_ci, (self.torsion_num_-i,1))
+        torsion_omega = np.dot( np.linalg.inv(R_omega) , (np.ravel(self.attitudes_[1:])-np.array(self.attitudes_[0]*self.torsion_num_)))
+        for i in range(self.torsion_num_):
+            jointstate.velocity[i] = -torsion_omega[3*i] # torsion axis is x
+
         self.jointstate_pub_.publish(jointstate)
 
 class TipDiffEstimator(NeuronAttitude2Torsion):

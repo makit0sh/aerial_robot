@@ -205,8 +205,8 @@ bool HydrusTiltedLQITorsionModeController::optimalGain()
     q_mu_p_gains_.at(i).clear();
     q_mu_d_gains_.at(i).clear();
     for (int j = 0; j < motor_num_; ++j) {
-      q_mu_p_gains_[i].push_back(K_(j, lqi_mode_*3+i*2));
-      q_mu_d_gains_[i].push_back(K_(j, lqi_mode_*3+1+i*2));
+      q_mu_p_gains_[i].push_back(K_(j, lqi_mode_*3+i*2)); // *torsion_eigens_[0] / torsion_eigens_[i]);
+      q_mu_d_gains_[i].push_back(K_(j, lqi_mode_*3+1+i*2)); // *torsion_eigens_[0] / torsion_eigens_[i]);
     }
   }
 

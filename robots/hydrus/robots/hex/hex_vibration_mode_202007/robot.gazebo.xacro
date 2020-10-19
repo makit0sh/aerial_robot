@@ -59,13 +59,13 @@
     <gravity>true</gravity>
     <sensor name="neuron1_imu" type="imu">
       <always_on>true</always_on>
-      <update_rate>100</update_rate>
+      <update_rate>60</update_rate>
       <visualize>true</visualize>
       <topic>__default_topic__</topic>
       <plugin filename="libgazebo_ros_imu_sensor.so" name="imu_plugin">
         <topicName>/$(arg robot_name)/neuron1_imu</topicName>
         <bodyName>neuron1_imu</bodyName>
-        <updateRateHZ>200.0</updateRateHZ>
+        <updateRateHZ>60.0</updateRateHZ>
         <!-- <gaussianNoise>0.001</gaussianNoise> -->
         <gaussianNoise>0</gaussianNoise>
         <xyzOffset>0 0 0</xyzOffset>
@@ -79,13 +79,13 @@
     <gravity>true</gravity>
     <sensor name="main_imu" type="imu">
       <always_on>true</always_on>
-      <update_rate>100</update_rate>
+      <update_rate>60</update_rate>
       <visualize>true</visualize>
       <topic>__default_topic__</topic>
       <plugin filename="libgazebo_ros_imu_sensor.so" name="imu_plugin">
         <topicName>/$(arg robot_name)/main_imu</topicName>
         <bodyName>main_imu</bodyName>
-        <updateRateHZ>200.0</updateRateHZ>
+        <updateRateHZ>60.0</updateRateHZ>
         <gaussianNoise>0</gaussianNoise>
         <xyzOffset>0 0 0</xyzOffset>
         <rpyOffset>0 0 0</rpyOffset>
@@ -98,13 +98,13 @@
     <gravity>true</gravity>
     <sensor name="neuron2_imu" type="imu">
       <always_on>true</always_on>
-      <update_rate>100</update_rate>
+      <update_rate>60</update_rate>
       <visualize>true</visualize>
       <topic>__default_topic__</topic>
       <plugin filename="libgazebo_ros_imu_sensor.so" name="imu_plugin">
         <topicName>/$(arg robot_name)/neuron2_imu</topicName>
         <bodyName>neuron2_imu</bodyName>
-        <updateRateHZ>200.0</updateRateHZ>
+        <updateRateHZ>60.0</updateRateHZ>
         <gaussianNoise>0</gaussianNoise>
         <xyzOffset>0 0 0</xyzOffset>
         <rpyOffset>0 0 0</rpyOffset>
@@ -117,13 +117,13 @@
     <gravity>true</gravity>
     <sensor name="neuron3_imu" type="imu">
       <always_on>true</always_on>
-      <update_rate>100</update_rate>
+      <update_rate>60</update_rate>
       <visualize>true</visualize>
       <topic>__default_topic__</topic>
       <plugin filename="libgazebo_ros_imu_sensor.so" name="imu_plugin">
         <topicName>/$(arg robot_name)/neuron3_imu</topicName>
         <bodyName>neuron3_imu</bodyName>
-        <updateRateHZ>200.0</updateRateHZ>
+        <updateRateHZ>60.0</updateRateHZ>
         <gaussianNoise>0</gaussianNoise>
         <xyzOffset>0 0 0</xyzOffset>
         <rpyOffset>0 0 0</rpyOffset>
@@ -136,13 +136,13 @@
     <gravity>true</gravity>
     <sensor name="neuron4_imu" type="imu">
       <always_on>true</always_on>
-      <update_rate>100</update_rate>
+      <update_rate>60</update_rate>
       <visualize>true</visualize>
       <topic>__default_topic__</topic>
       <plugin filename="libgazebo_ros_imu_sensor.so" name="imu_plugin">
         <topicName>/$(arg robot_name)/neuron4_imu</topicName>
         <bodyName>neuron4_imu</bodyName>
-        <updateRateHZ>200.0</updateRateHZ>
+        <updateRateHZ>60.0</updateRateHZ>
         <gaussianNoise>0</gaussianNoise>
         <xyzOffset>0 0 0</xyzOffset>
         <rpyOffset>0 0 0</rpyOffset>
@@ -155,13 +155,13 @@
     <gravity>true</gravity>
     <sensor name="neuron5_imu" type="imu">
       <always_on>true</always_on>
-      <update_rate>100</update_rate>
+      <update_rate>60</update_rate>
       <visualize>true</visualize>
       <topic>__default_topic__</topic>
       <plugin filename="libgazebo_ros_imu_sensor.so" name="imu_plugin">
         <topicName>/$(arg robot_name)/neuron5_imu</topicName>
         <bodyName>neuron5_imu</bodyName>
-        <updateRateHZ>200.0</updateRateHZ>
+        <updateRateHZ>60.0</updateRateHZ>
         <gaussianNoise>0</gaussianNoise>
         <xyzOffset>0 0 0</xyzOffset>
         <rpyOffset>0 0 0</rpyOffset>
@@ -174,13 +174,13 @@
     <gravity>true</gravity>
     <sensor name="neuron6_imu" type="imu">
       <always_on>true</always_on>
-      <update_rate>100</update_rate>
+      <update_rate>60</update_rate>
       <visualize>true</visualize>
       <topic>__default_topic__</topic>
       <plugin filename="libgazebo_ros_imu_sensor.so" name="imu_plugin">
         <topicName>/$(arg robot_name)/neuron6_imu</topicName>
         <bodyName>neuron6_imu</bodyName>
-        <updateRateHZ>200.0</updateRateHZ>
+        <updateRateHZ>60.0</updateRateHZ>
         <gaussianNoise>0</gaussianNoise>
         <xyzOffset>0 0 0</xyzOffset>
         <rpyOffset>0 0 0</rpyOffset>
@@ -196,7 +196,7 @@
     <!-- TODO neuron?_imu does not work as bodyName why? -->
     <plugin filename="libgazebo_ros_p3d.so" name="neuron1_groundtruth">
       <bodyName>link1</bodyName>
-      <topicName>/$(arg robot_name)/neuron1_groundtruth</topicName>
+      <topicName>/$(arg robot_name)/mocap/link1/pose</topicName>
       <updateRate>100</updateRate>
       <gaussianNoise>0.001</gaussianNoise>
       <xyzOffset>0 0 0</xyzOffset>
@@ -205,7 +205,7 @@
     </plugin>
     <plugin filename="libgazebo_ros_p3d.so" name="neuron2_groundtruth">
       <bodyName>link2</bodyName>
-      <topicName>/$(arg robot_name)/neuron2_groundtruth</topicName>
+      <topicName>/$(arg robot_name)/mocap/link2/pose</topicName>
       <updateRate>100</updateRate>
       <gaussianNoise>0.001</gaussianNoise>
       <xyzOffset>0 0 0</xyzOffset>
@@ -214,7 +214,7 @@
     </plugin>
     <plugin filename="libgazebo_ros_p3d.so" name="neuron3_groundtruth">
       <bodyName>link3</bodyName>
-      <topicName>/$(arg robot_name)/neuron3_groundtruth</topicName>
+      <topicName>/$(arg robot_name)/mocap/link3/pose</topicName>
       <updateRate>100</updateRate>
       <gaussianNoise>0.001</gaussianNoise>
       <xyzOffset>0 0 0</xyzOffset>
@@ -223,7 +223,7 @@
     </plugin>
     <plugin filename="libgazebo_ros_p3d.so" name="neuron4_groundtruth">
       <bodyName>link4</bodyName>
-      <topicName>/$(arg robot_name)/neuron4_groundtruth</topicName>
+      <topicName>/$(arg robot_name)/mocap/link4/pose</topicName>
       <updateRate>100</updateRate>
       <gaussianNoise>0.001</gaussianNoise>
       <xyzOffset>0 0 0</xyzOffset>
@@ -232,7 +232,7 @@
     </plugin>
     <plugin filename="libgazebo_ros_p3d.so" name="neuron5_groundtruth">
       <bodyName>link5</bodyName>
-      <topicName>/$(arg robot_name)/neuron5_groundtruth</topicName>
+      <topicName>/$(arg robot_name)/mocap/link5/pose</topicName>
       <updateRate>100</updateRate>
       <gaussianNoise>0.001</gaussianNoise>
       <xyzOffset>0 0 0</xyzOffset>
@@ -241,7 +241,7 @@
     </plugin>
     <plugin filename="libgazebo_ros_p3d.so" name="neuron6_groundtruth">
       <bodyName>link6</bodyName>
-      <topicName>/$(arg robot_name)/neuron6_groundtruth</topicName>
+      <topicName>/$(arg robot_name)/mocap/link6/pose</topicName>
       <updateRate>100</updateRate>
       <gaussianNoise>0.001</gaussianNoise>
       <xyzOffset>0 0 0</xyzOffset>

@@ -49,6 +49,11 @@ catkin_package(
   DEPENDS EIGEN3
 )
 
+### FOR PROFILING (need to set after catkin_package)
+# add_compile_options(-pg)
+# set(catkin_LIBRARIES ${catkin_LIBRARIES} -pg)
+###
+
 # Eigen requires optimization to get good performance
 # http://eigen.tuxfamily.org/index.php?title=FAQ#Optimization
 if(NOT CMAKE_BUILD_TYPE)
@@ -79,8 +84,13 @@ include_directories(
 # SET (CMAKE_BUILD_TYPE "" Release)
 # ADD_SUBDIRECTORY( rbdl )
 
+add_library(rbdl_util
+  src/util/rbdl_util.cpp
+  )
+target_link_libraries(rbdl_util ${RBDL_LIBRARY} ${RBDL_URDFReader_LIBRARY})
+
 add_executable(torsion_mode_calculator src/torsion_mode_calculator.cpp)
-target_link_libraries(torsion_mode_calculator ${catkin_LIBRARIES} ${RBDL_LIBRARY} ${RBDL_URDFReader_LIBRARY})
+target_link_libraries(torsion_mode_calculator ${catkin_LIBRARIES} ${RBDL_LIBRARY} ${RBDL_URDFReader_LIBRARY} rbdl_util)
 
 add_library(hydrus_robot_model
   src/hydrus_robot_model.cpp
@@ -99,6 +109,25 @@ target_link_libraries(hydrus_controller_pluginlib hydrus_robot_model
   ${RBDL_LIBRARY} ${RBDL_URDFReader_LIBRARY}
   )
 add_dependencies(hydrus_controller_pluginlib aerial_robot_msgs_generate_messages_cpp spinal_generate_messages_cpp ${PROJECT_NAME}_gencfg)
+
+# add_library(kalman INTERFACE)
+# target_include_directories(kalman INTERFACE
+#   include/kalman
+# )
+
+find_package(Armadillo REQUIRED)
+add_library(kalman_filters INTERFACE)
+target_include_directories(kalman_filters INTERFACE
+  include/kalman_filters
+)
+
+add_library(torsion_estimator src/torsion_estimator.cpp)
+target_link_libraries(torsion_estimator
+  kalman_filters ${ARMADILLO_LIBRARIES}
+  ${RBDL_LIBRARY} ${RBDL_URDFReader_LIBRARY} rbdl_util
+  ${catkin_LIBRARIES} ${EIGEN3_LIBRARIES})
+add_executable(torsion_estimator_node src/torsion_estimator_node.cpp)
+target_link_libraries(torsion_estimator_node torsion_estimator ${catkin_LIBRARIES}  ${EIGEN3_LIBRARIES})
 
 # test
 # pre-build test code

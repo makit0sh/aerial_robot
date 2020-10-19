@@ -13,6 +13,7 @@
 #endif
 
 #include <rbdl/addons/urdfreader/urdfreader.h>
+#include <hydrus/util/rbdl_util.h>
 
 #include <Eigen/Dense>
 #include <algorithm>
@@ -48,6 +49,7 @@ class TorsionModeCalculator
     ros::Publisher B_rot_pub_;
     ros::Publisher B_trans_pub_;
     ros::Publisher mode_pub_;
+    ros::Publisher K_sys_pub_;
 
     Model* model_;
     std::vector<unsigned int> torsion_dof_update_order_;
@@ -70,8 +72,6 @@ class TorsionModeCalculator
     std::vector<double> joints_;
     std::vector<double> joints_d_;
     void jointsCallback(const sensor_msgs::JointStateConstPtr& msg);
-
-    std::vector<unsigned int> get_torsion_dof_update_order(std::string name_prefix="torsion_dummy", int start_num=1);
 
     dynamic_reconfigure::Server<hydrus::torsion_modeConfig>::CallbackType reconf_func_;
     dynamic_reconfigure::Server<hydrus::torsion_modeConfig>* reconf_server_;

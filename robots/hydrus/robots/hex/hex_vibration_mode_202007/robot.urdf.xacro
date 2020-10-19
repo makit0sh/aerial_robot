@@ -8,9 +8,16 @@
   <xacro:arg name="tilt_mode" default="1"/>
   <xacro:arg name="tilt_angle" default="20"/>
 
+  <xacro:arg name="root_on_fc" default="false"/>
+
   <!-- basic kinematics model -->
   <xacro:include filename="$(find hydrus)/urdf/common.xacro" />
-  <xacro:include filename="$(find hydrus)/urdf/link.urdf.xacro" />
+  <xacro:unless value="$(arg root_on_fc)">
+    <xacro:include filename="$(find hydrus)/urdf/link.urdf.xacro" />
+  </xacro:unless>
+  <xacro:if value="$(arg root_on_fc)">
+    <xacro:include filename="$(find hydrus)/urdf/link_root_on_fc.urdf.xacro" />
+  </xacro:if>
 
   <xacro:if value="$(arg sim)">
     <xacro:hydrus_link links="6" self="1" rotor_direction="-1" with_battery = "1"  vibrate = "1" tilt_mode="$(arg tilt_mode)" tilt_angle="$(arg tilt_angle)" fix_rotor="$(arg fix_rotor)"/>
@@ -186,7 +193,8 @@
     </inertial>
   </xacro:extra_module>
   <xacro:extra_module name = "neuron6_imu" parent = "link6">
-    <origin xyz="${link_length - 0.03} 0 ${0.02}" rpy="0 0 0"/>
+    <origin xyz="${0.03} 0 ${0.02}" rpy="0 0 0"/>
+    <!-- <origin xyz="${link_length - 0.03} 0 ${0.02}" rpy="0 0 0"/> -->
     <inertial>
       <mass value = "0.00001" />
       <origin xyz="0 0 0" rpy="0 0 0"/>

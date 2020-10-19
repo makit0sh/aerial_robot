@@ -72,7 +72,7 @@ controller:
     # torsion_control torsional_spring_constant: 50.0
     mode_num: 2
     q_mu: [0.1, 1]
-    q_mu_d: [0.1, 1]
+    q_mu_d: [0.1, 100]
     use_rbdl_b_rot: false
     # mode_num: 4
     # q_mu: [1, 1, 1, 1]

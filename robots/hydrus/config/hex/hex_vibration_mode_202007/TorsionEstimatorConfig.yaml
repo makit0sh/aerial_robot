@@ -1,0 +1,78 @@
+kf_step_rate: 50.0
+
+use_ukf: false
+use_ekf: false
+use_orientation: true
+use_base_imu: false
+use_external_joint_estimation: false
+use_simple_system_model: true
+use_K_sys: false
+use_adj_joint_calculation: true
+base_link_id: 1
+torsion_vel_cutoff_freq: 6.0
+torsion_vel_q: 1.0
+torsion_cutoff_freq: 10.0
+torsion_q: 1.0
+
+torsion_constant: 0.00
+
+ukf_alpha: 0.05
+ukf_beta: 2.0
+ukf_kappa: 0.0
+
+sigma2_system:
+  # torsion, torsion_vel
+  - 0.01
+  - 0.01
+  - 0.01
+  - 0.01
+  - 0.01
+  - 0.01
+  - 0.01
+  - 0.01
+  - 0.01
+  - 0.01
+
+sigma2_measure:
+  # n 1
+  - 0.11
+  - 0.11
+  - 0.11
+  - 0.15
+  - 0.15
+  - 0.15
+  # n 2
+  - 0.11
+  - 0.11
+  - 0.11
+  - 0.15
+  - 0.15
+  - 0.15
+  # n 3
+  - 0.11
+  - 0.11
+  - 0.11
+  - 0.15
+  - 0.15
+  - 0.15
+  # n 4
+  - 0.11
+  - 0.11
+  - 0.11
+  - 0.15
+  - 0.15
+  - 0.15
+  # n 5
+  - 0.11
+  - 0.11
+  - 0.11
+  - 0.15
+  - 0.15
+  - 0.15
+  # joints
+  # - 0.01
+  # - 0.01
+  # - 0.01
+  # - 0.01
+  # - 0.01
+
