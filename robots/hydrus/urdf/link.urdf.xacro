@@ -269,12 +269,12 @@
           </inertial>
         </link>
         <joint name="torsion${self}" type="revolute">
-          <limit effort="10000.0" lower="${-pi/4}" upper="${pi/4}" velocity="1"/>
+          <limit effort="10000.0" lower="${-pi/6}" upper="${pi/6}" velocity="1"/>
           <parent link="link${self}"/>
           <child link="torsion_dummy${self}"/>
           <origin rpy="0 0 0" xyz="${link_length} 0 0"/>
           <axis xyz="1 0 0"/>
-          <dynamics damping="0.7" friction="0.00"/>
+          <dynamics damping="1.0" friction="0.00"/>
         </joint>
         <!-- <link name="torsion_dummy${self}_l"> -->
         <!--   <inertial> -->

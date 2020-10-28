@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="robot_model" default="$(find hydrus)/robots/oct/oct_vibration_mode_202010/robot.gazebo.xacro"/>
+  <arg name="robot_ns" default="hydrus" />
+  <arg name="links" default="8" />
+  <arg name="simulation" default="false" />
+  <arg name="mocap_for_torsion" default="false" />
+
+  <!-- <env name="GMON_OUT_PREFIX" value="gmon.torsion_estimator_node" /> -->
+  <node pkg="hydrus" type="torsion_estimator_node" name="torsion_estimator" output="screen">
+    <!-- launch-prefix="valgrind -tool=callgrind -callgrind-out-file='callgrind.torsion_estimator_node.%p' " -->
+    <!-- launch-prefix="xterm -g 200x60 -fa 'Liberation Mono:pixelsize=20:antialias=false:autohint=false' -e gdb -ex run -args" -->
+    <param name="robot_description_control" command="$(find xacro)/xacro.py '$(arg robot_model)' robot_name:=$(arg robot_ns) links:=$(arg links) sim:=true fix_rotor:=1 root_on_fc:=false"/>
+    <param name="links" type="int" value="$(arg links)"/>
+    <param name="robot_name" value="$(arg robot_ns)"/>
+    <param name="simulation" value="$(arg simulation)"/>
+    <param name="use_mocap" value="$(arg mocap_for_torsion)"/>
+
+    <rosparam command="load" file="$(find hydrus)/config/oct/oct_vibration_mode_202010/TorsionEstimatorConfig.yaml" />
+
+    <remap from="/$(arg robot_ns)/torsion_estimator/torsion_estimate" to="/$(arg robot_ns)/link_torsion/joint_states"/>
+    <remap from="/$(arg robot_ns)/link_torsion/joint_states" to="/$(arg robot_ns)/imu2jointstate/joint_states"/>
+  </node>
+</launch>
