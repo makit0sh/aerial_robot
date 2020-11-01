@@ -13,6 +13,11 @@ void HydrusTiltedLQITorsionModeController::initialize(ros::NodeHandle nh,
 
   desired_baselink_rot_pub_ = nh_.advertise<spinal::DesireCoord>("desire_coordinate", 1);
 
+  nhp_.param("debug", is_debug_, false);
+  if (is_debug_) {
+    K_gain_pub_ = nhp_.advertise<std_msgs::Float32MultiArray>("K_gain", 5);
+  }
+
   pid_msg_.z.p_term.resize(1);
   pid_msg_.z.i_term.resize(1);
   pid_msg_.z.d_term.resize(1);
@@ -208,6 +213,18 @@ bool HydrusTiltedLQITorsionModeController::optimalGain()
       q_mu_p_gains_[i].push_back(K_(j, lqi_mode_*3+i*2)); // *torsion_eigens_[0] / torsion_eigens_[i]);
       q_mu_d_gains_[i].push_back(K_(j, lqi_mode_*3+1+i*2)); // *torsion_eigens_[0] / torsion_eigens_[i]);
     }
+  }
+
+  // for debug
+  if (is_debug_) {
+    std_msgs::Float32MultiArray K_gain_msg;
+    K_gain_msg.data.clear();
+    for (int i = 0; i < K_.rows(); ++i) {
+      for (int j = 0; j < K_.cols(); ++j) {
+        K_gain_msg.data.push_back(K_(i,j));
+      }
+    }
+    K_gain_pub_.publish(K_gain_msg);
   }
 
   // compensation for gyro moment

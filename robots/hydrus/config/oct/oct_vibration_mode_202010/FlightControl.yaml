@@ -4,6 +4,9 @@
 aerial_robot_control_name: aerial_robot_control/hydrus_tilted_lqi_torsion_mode_controller
 # aerial_robot_control_name: aerial_robot_control/hydrus_tilted_lqi_controller
 
+aerial_robot_base_node:
+  debug: true
+
 controller:
   xy:
     p_gain: 2.3

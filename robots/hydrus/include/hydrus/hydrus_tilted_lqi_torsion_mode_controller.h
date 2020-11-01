@@ -86,6 +86,9 @@ namespace aerial_robot_control
     int mode_num_;
     double init_wait_time_;
 
+    bool is_debug_;
+    ros::Publisher K_gain_pub_;
+
     std::vector<double> q_mu_;
     std::vector<double> q_mu_d_;
     std::vector<std::vector<double>> q_mu_p_gains_;
