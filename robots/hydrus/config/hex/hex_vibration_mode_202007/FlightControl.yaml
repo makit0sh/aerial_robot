@@ -74,8 +74,8 @@ controller:
 
     # torsion_control torsional_spring_constant: 50.0
     mode_num: 2
-    q_mu: [0.1, 1]
-    q_mu_d: [0.1, 100]
+    q_mu: [0.1, 0.1]
+    q_mu_d: [0.1, 0.1]
     use_rbdl_b_rot: false
     # mode_num: 4
     # q_mu: [1, 1, 1, 1]
@@ -94,4 +94,17 @@ controller:
     # q_mu_d: 0.01
     # yaw_torsion_p_gain: 0.0
     # yaw_torsion_p_gain: 0.0
+
+    torsion_epsilon_rp_p: 0.1
+    torsion_epsilon_rp_i: 0.1
+    torsion_epsilon_rp_d: 0.1
+    torsion_epsilon_y_p: 0.1
+    torsion_epsilon_y_i: 0.1
+    torsion_epsilon_y_d: 0.1
+    torsion_alpha_rp_p: 0.4
+    torsion_alpha_rp_i: 0.3
+    torsion_alpha_rp_d: 0.4
+    torsion_alpha_y_p: 0.7
+    torsion_alpha_y_i: 0.7
+    torsion_alpha_y_d: 0.7
 

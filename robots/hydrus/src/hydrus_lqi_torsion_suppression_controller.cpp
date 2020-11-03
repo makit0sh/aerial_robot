@@ -237,6 +237,7 @@ void HydrusLQITorsionSuppressionController::cfgLQITorsionCallback(hydrus::LQI_to
         q_mu_d_= config.q_mu_d;
         printf("change the gain of lqi torsion mu d gain: %f\n", q_mu_d_);
         break;
+      /*
       case LQI_TORSION_TARGET_YAW_P_GAIN:
         yaw_torsion_p_gain_ = config.yaw_torsion_p_gain;
         printf("change the gain of yaw to torsion fw p gain: %f\n", yaw_torsion_p_gain_);
@@ -245,6 +246,7 @@ void HydrusLQITorsionSuppressionController::cfgLQITorsionCallback(hydrus::LQI_to
         yaw_torsion_d_gain_ = config.yaw_torsion_d_gain;
         printf("change the gain of yaw to torsion fw d gain: %f\n", yaw_torsion_d_gain_);
         break;
+        */
       default :
         printf("\n");
         break;

@@ -42,6 +42,7 @@
 #include <std_msgs/Float32MultiArray.h>
 #include <aerial_robot_msgs/SetFloat64Array.h>
 #include <vector>
+#include <algorithm>
 
 #include <rbdl/rbdl.h>
 #include <rbdl/rbdl_utils.h>
@@ -55,6 +56,18 @@
 #define LQI_TORSION_GAIN_FLAG 0
 #define LQI_TORSION_MU_P_GAIN 1
 #define LQI_TORSION_MU_D_GAIN 2
+#define LQI_TORSION_EPSILON_RP_P 3
+#define LQI_TORSION_EPSILON_RP_I 4
+#define LQI_TORSION_EPSILON_RP_D 5
+#define LQI_TORSION_EPSILON_Y_P  6
+#define LQI_TORSION_EPSILON_Y_I  7
+#define LQI_TORSION_EPSILON_Y_D  8
+#define LQI_TORSION_ALPHA_RP_P 9
+#define LQI_TORSION_ALPHA_RP_I 10
+#define LQI_TORSION_ALPHA_RP_D 11
+#define LQI_TORSION_ALPHA_Y_P 12
+#define LQI_TORSION_ALPHA_Y_I 13
+#define LQI_TORSION_ALPHA_Y_D 14
 
 namespace aerial_robot_control
 {
@@ -93,6 +106,19 @@ namespace aerial_robot_control
     std::vector<double> q_mu_d_;
     std::vector<std::vector<double>> q_mu_p_gains_;
     std::vector<std::vector<double>> q_mu_d_gains_;
+
+    double torsion_alpha_rp_p_;
+    double torsion_alpha_rp_i_;
+    double torsion_alpha_rp_d_;
+    double torsion_alpha_y_p_;
+    double torsion_alpha_y_i_;
+    double torsion_alpha_y_d_;
+    double torsion_epsilon_rp_p_;
+    double torsion_epsilon_rp_i_;
+    double torsion_epsilon_rp_d_;
+    double torsion_epsilon_y_p_;
+    double torsion_epsilon_y_i_;
+    double torsion_epsilon_y_d_;
 
     dynamic_reconfigure::Server<hydrus::LQI_torsionConfig>::CallbackType dynamic_reconf_func_lqi_torsion_;
     dynamic_reconfigure::Server<hydrus::LQI_torsionConfig>* lqi_torsion_server_;
