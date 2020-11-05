@@ -5,7 +5,6 @@ aerial_robot_control_name: aerial_robot_control/hydrus_tilted_lqi_torsion_mode_c
 # aerial_robot_control_name: aerial_robot_control/hydrus_tilted_lqi_controller
 
 controller:
-  debug: true
   xy:
     p_gain: 2.3
     i_gain: 0.02
@@ -36,6 +35,7 @@ controller:
 
   # LQI gain generator
   lqi:
+    debug: true
     gain_generate_rate: 30.0
     init_wait_time: 5
     gyro_moment_compensation: false
@@ -82,9 +82,9 @@ controller:
     torsion_epsilon_y_p: 0.1
     torsion_epsilon_y_i: 0.1
     torsion_epsilon_y_d: 0.1
-    torsion_alpha_rp_p: 0.4
-    torsion_alpha_rp_i: 0.3
-    torsion_alpha_rp_d: 0.4
-    torsion_alpha_y_p: 0.7
-    torsion_alpha_y_i: 0.7
-    torsion_alpha_y_d: 0.7
+    torsion_alpha_rp_p: 0.1
+    torsion_alpha_rp_i: 0.1
+    torsion_alpha_rp_d: 0.2
+    torsion_alpha_y_p: 0.2
+    torsion_alpha_y_i: 0.2
+    torsion_alpha_y_d: 0.2

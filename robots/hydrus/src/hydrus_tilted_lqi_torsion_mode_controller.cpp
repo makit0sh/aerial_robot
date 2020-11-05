@@ -213,19 +213,21 @@ bool HydrusTiltedLQITorsionModeController::optimalGain()
   double K_yaw_d_torsion_factor = 1;
 
   for (int i = 0; i < mode_num_; ++i) {
-    K_roll_torsion_corr[i] = K_.col(2).dot( K_.col(lqi_mode_*3+i*2) ) / K_.col(2).norm() / K_.col(lqi_mode_*3+i*2).norm();
-    K_pitch_torsion_corr[i] = K_.col(4).dot( K_.col(lqi_mode_*3+i*2) ) / K_.col(4).norm() / K_.col(lqi_mode_*3+i*2).norm();
-    K_yaw_torsion_corr[i] = K_.col(6).dot( K_.col(lqi_mode_*3+i*2) ) / K_.col(6).norm() / K_.col(lqi_mode_*3+i*2).norm();
+    double K_torsion_norm = K_.col(lqi_mode_*3+i*2).norm();
+    ROS_DEBUG_STREAM("K torsion norm of mode " << i << " : " << K_torsion_norm);
+    K_roll_torsion_corr[i] = K_.col(2).dot( K_.col(lqi_mode_*3+i*2) ) / K_.col(2).norm() / K_torsion_norm;
+    K_pitch_torsion_corr[i] = K_.col(4).dot( K_.col(lqi_mode_*3+i*2) ) / K_.col(4).norm() / K_torsion_norm;
+    K_yaw_torsion_corr[i] = K_.col(6).dot( K_.col(lqi_mode_*3+i*2) ) / K_.col(6).norm() / K_torsion_norm;
 
-    K_roll_p_torsion_factor  -= torsion_alpha_rp_p_ * K_roll_torsion_corr[i] * K_roll_torsion_corr[i] * torsion_eigens_[0] / torsion_eigens_[i];
-    K_roll_i_torsion_factor  -= torsion_alpha_rp_i_ * K_roll_torsion_corr[i] * K_roll_torsion_corr[i] * torsion_eigens_[0] / torsion_eigens_[i];
-    K_roll_d_torsion_factor  -= torsion_alpha_rp_d_ * K_roll_torsion_corr[i] * K_roll_torsion_corr[i] * torsion_eigens_[0] / torsion_eigens_[i];
-    K_pitch_p_torsion_factor -= torsion_alpha_rp_p_ * K_pitch_torsion_corr[i] * K_pitch_torsion_corr[i] * torsion_eigens_[0] / torsion_eigens_[i];
-    K_pitch_i_torsion_factor -= torsion_alpha_rp_i_ * K_pitch_torsion_corr[i] * K_pitch_torsion_corr[i] * torsion_eigens_[0] / torsion_eigens_[i];
-    K_pitch_d_torsion_factor -= torsion_alpha_rp_d_ * K_pitch_torsion_corr[i] * K_pitch_torsion_corr[i] * torsion_eigens_[0] / torsion_eigens_[i];
-    K_yaw_p_torsion_factor   -= torsion_alpha_y_p_ * K_yaw_torsion_corr[i] * K_yaw_torsion_corr[i] * torsion_eigens_[0] / torsion_eigens_[i];
-    K_yaw_i_torsion_factor   -= torsion_alpha_y_i_ * K_yaw_torsion_corr[i] * K_yaw_torsion_corr[i] * torsion_eigens_[0] / torsion_eigens_[i];
-    K_yaw_d_torsion_factor   -= torsion_alpha_y_d_ * K_yaw_torsion_corr[i] * K_yaw_torsion_corr[i] * torsion_eigens_[0] / torsion_eigens_[i];
+    K_roll_p_torsion_factor  -= torsion_alpha_rp_p_ * K_torsion_norm * K_roll_torsion_corr[i] * K_roll_torsion_corr[i] * torsion_eigens_[0] / torsion_eigens_[i];
+    K_roll_i_torsion_factor  -= torsion_alpha_rp_i_ * K_torsion_norm * K_roll_torsion_corr[i] * K_roll_torsion_corr[i] * torsion_eigens_[0] / torsion_eigens_[i];
+    K_roll_d_torsion_factor  -= torsion_alpha_rp_d_ * K_torsion_norm * K_roll_torsion_corr[i] * K_roll_torsion_corr[i] * torsion_eigens_[0] / torsion_eigens_[i];
+    K_pitch_p_torsion_factor -= torsion_alpha_rp_p_ * K_torsion_norm * K_pitch_torsion_corr[i] * K_pitch_torsion_corr[i] * torsion_eigens_[0] / torsion_eigens_[i];
+    K_pitch_i_torsion_factor -= torsion_alpha_rp_i_ * K_torsion_norm * K_pitch_torsion_corr[i] * K_pitch_torsion_corr[i] * torsion_eigens_[0] / torsion_eigens_[i];
+    K_pitch_d_torsion_factor -= torsion_alpha_rp_d_ * K_torsion_norm * K_pitch_torsion_corr[i] * K_pitch_torsion_corr[i] * torsion_eigens_[0] / torsion_eigens_[i];
+    K_yaw_p_torsion_factor   -= torsion_alpha_y_p_  * K_torsion_norm * K_yaw_torsion_corr[i] * K_yaw_torsion_corr[i] * torsion_eigens_[0] / torsion_eigens_[i];
+    K_yaw_i_torsion_factor   -= torsion_alpha_y_i_  * K_torsion_norm * K_yaw_torsion_corr[i] * K_yaw_torsion_corr[i] * torsion_eigens_[0] / torsion_eigens_[i];
+    K_yaw_d_torsion_factor   -= torsion_alpha_y_d_  * K_torsion_norm * K_yaw_torsion_corr[i] * K_yaw_torsion_corr[i] * torsion_eigens_[0] / torsion_eigens_[i];
   }
 
   K_roll_p_torsion_factor = std::max(K_roll_p_torsion_factor, torsion_epsilon_rp_p_);
