@@ -2,6 +2,40 @@
 
 using namespace aerial_robot_control;
 
+namespace
+{
+  double maximizeTorsionDistanceFactor(const std::vector<double> &x, std::vector<double> &grad, void *data) 
+  {
+    HydrusTiltedLQITorsionModeController *controller_ptr = reinterpret_cast<HydrusTiltedLQITorsionModeController*>(data);
+
+    double torsion_factor = 1.0;
+    Eigen::MatrixXd K = controller_ptr->getK();
+    Eigen::VectorXd K_gain;
+    Eigen::MatrixXd B_eom_kernel = controller_ptr->getBEomKernel();
+    int lqi_mode = controller_ptr->getLQIMode();
+    std::array<double,9> torsion_alpha = controller_ptr->getTorsionAlpha();
+    std::vector<double> torsion_eigens = controller_ptr->getTorsionEigens();
+    int nlopt_tmp_index = controller_ptr->getNloptTmpIndex();
+    double null_space_shift_init_ratio = controller_ptr->getNullSpaceShiftInitRatio();
+    Eigen::VectorXd K_factors_index(9);
+    K_factors_index << 2,lqi_mode*2+1,3,4,lqi_mode*2+2,5,6,lqi_mode*2+3,7;
+
+    K_gain = K.col(K_factors_index(nlopt_tmp_index));
+    K_gain = K_gain / K_gain.cwiseAbs().maxCoeff() * null_space_shift_init_ratio;
+
+    for (int i = 0; i < B_eom_kernel.cols(); ++i) {
+      K_gain = K_gain + x[i]*B_eom_kernel.col(i);
+    }
+
+    for (int i = 0; i < controller_ptr->getModeNum(); ++i) {
+      double K_torsion_norm = K.col(lqi_mode*3+i*2).norm();
+      double K_corr = K_gain.dot( K.col(lqi_mode*3+i*2) ) / K_gain.norm() / K_torsion_norm;
+      torsion_factor -= torsion_alpha.at(nlopt_tmp_index) * K_torsion_norm * K_corr*K_corr * torsion_eigens.at(0)/torsion_eigens.at(i); //BUG??
+    }
+    return torsion_factor;
+  }
+}
+
 void HydrusTiltedLQITorsionModeController::initialize(ros::NodeHandle nh,
                                            ros::NodeHandle nhp,
                                            boost::shared_ptr<aerial_robot_model::RobotModel> robot_model,
@@ -14,7 +48,16 @@ void HydrusTiltedLQITorsionModeController::initialize(ros::NodeHandle nh,
   desired_baselink_rot_pub_ = nh_.advertise<spinal::DesireCoord>("desire_coordinate", 1);
 
   if (is_debug_) {
-    K_gain_pub_ = nhp_.advertise<std_msgs::Float32MultiArray>("K_gain", 5);
+    debug_pub_throttle_count_ = 0;
+    K_gain_pub_ = nhp_.advertise<std_msgs::Float32MultiArray>("K_gain", 1);
+    K_gain_shifted_pub_ = nhp_.advertise<std_msgs::Float32MultiArray>("K_gain_shifted", 1);
+    modes_pub_ = nhp_.advertise<std_msgs::Float32MultiArray>("modes", 1);
+    modes_d_pub_ = nhp_.advertise<std_msgs::Float32MultiArray>("modes_d", 1);
+    B_kernel_pub_ = nhp_.advertise<std_msgs::Float32MultiArray>("B_kernel", 1);
+    if (!is_use_rbdl_torsion_B_) {
+      torsion_B_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("torsion_B_matrix", 1);
+      torsion_B_mode_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("torsion_B_mode_matrix", 1);
+    }
   }
 
   pid_msg_.z.p_term.resize(1);
@@ -31,12 +74,17 @@ void HydrusTiltedLQITorsionModeController::initialize(ros::NodeHandle nh,
   torsion_mode_matrix_.resize(mode_num_, torsion_num_);
   torsion_B_matrix_.resize(mode_num_, motor_num_);
   torsion_B_rot_matrix_.resize(3, motor_num_);
+  kernel_mix_ratio_.resize(9);
 
   link_torsion_sub_ = nh_.subscribe<sensor_msgs::JointState>("link_torsion/joint_states", 10, &HydrusTiltedLQITorsionModeController::linkTorsionCallback, this);
   eigen_sub_ = nh_.subscribe<std_msgs::Float32MultiArray>("torsion_eigens", 10, &HydrusTiltedLQITorsionModeController::torsionEigensCallback, this);
   mode_sub_ = nh_.subscribe<std_msgs::Float32MultiArray>("torsion_mode_matrix", 10, &HydrusTiltedLQITorsionModeController::torsionModeCallback, this);
-  B_sub_ = nh_.subscribe<std_msgs::Float32MultiArray>("torsion_B_mode_matrix", 10, &HydrusTiltedLQITorsionModeController::torsionBCallback, this);
-  B_rot_sub_ = nh_.subscribe<std_msgs::Float32MultiArray>("torsion_B_rot_matrix", 10, &HydrusTiltedLQITorsionModeController::torsionBRotCallback, this);
+  if (is_use_rbdl_torsion_B_) {
+    B_sub_ = nh_.subscribe<std_msgs::Float32MultiArray>("torsion_B_mode_matrix", 10, &HydrusTiltedLQITorsionModeController::torsionBCallback, this);
+  }
+  if (use_rbdl_b_rot_) {
+    B_rot_sub_ = nh_.subscribe<std_msgs::Float32MultiArray>("torsion_B_rot_matrix", 10, &HydrusTiltedLQITorsionModeController::torsionBRotCallback, this);
+  }
 
   //dynamic reconfigure server
   ros::NodeHandle control_nh(nh_, "controller");
@@ -95,6 +143,21 @@ void HydrusTiltedLQITorsionModeController::controlCore()
   /* torsion suppression control */
   Eigen::VectorXd modes = torsion_mode_matrix_ * Eigen::Map<Eigen::VectorXd>(&torsions_[0], torsions_.size());
   Eigen::VectorXd modes_d = torsion_mode_matrix_ * Eigen::Map<Eigen::VectorXd>(&torsions_d_[0], torsions_d_.size());
+  if (is_debug_) {
+    std_msgs::Float32MultiArray modes_msg;
+    modes_msg.data.clear();
+    for (int i = 0; i < modes.size(); ++i) {
+        modes_msg.data.push_back(modes(i));
+    }
+    modes_pub_.publish(modes_msg);
+
+    std_msgs::Float32MultiArray modes_d_msg;
+    modes_d_msg.data.clear();
+    for (int i = 0; i < modes_d.size(); ++i) {
+        modes_d_msg.data.push_back(modes_d(i));
+    }
+    modes_d_pub_.publish(modes_d_msg);
+  }
 
   for (int i = 0; i < motor_num_; ++i) {
     for (int j = 0; j < mode_num_; ++j) {
@@ -135,9 +198,57 @@ bool HydrusTiltedLQITorsionModeController::optimalGain()
     }
   A_eom.block(lqi_mode_ * 2, 0, lqi_mode_, lqi_mode_ * 3) = -C_eom;
 
+  Eigen::FullPivLU<Eigen::MatrixXd> B_eom_lu_decomp(B_eom);
+  B_eom_kernel_ = B_eom_lu_decomp.kernel();
+  ROS_DEBUG_STREAM("B_eom rows: " << B_eom.rows() );
+  ROS_DEBUG_STREAM("B_eom rank: " << B_eom_lu_decomp.rank() );
+  ROS_DEBUG_STREAM("B_eom kernel:\n" << B_eom_kernel_ );
+  if (is_debug_ && debug_pub_throttle_count_%DEBUG_PUB_THROTTLE_FACTOR) {
+    std_msgs::Float32MultiArray B_kernel_msg;
+    B_kernel_msg.data.clear();
+    for (int i = 0; i < B_eom_kernel_.rows(); ++i) {
+      for (int j = 0; j < B_eom_kernel_.cols(); ++j) {
+        B_kernel_msg.data.push_back(B_eom_kernel_(i,j));
+      }
+    }
+    B_kernel_pub_.publish(B_kernel_msg);
+  }
+
   Eigen::MatrixXd A_tor = Eigen::MatrixXd::Zero(mode_num_*2, mode_num_*2);
   Eigen::MatrixXd B_tor = Eigen::MatrixXd::Zero(mode_num_*2, motor_num_);
   Eigen::MatrixXd C_tor = Eigen::MatrixXd::Zero(mode_num_, mode_num_*2);
+
+  if (!is_use_rbdl_torsion_B_) {
+    Eigen::MatrixXd B_torsion_tmp = Eigen::MatrixXd::Zero(torsion_num_, motor_num_);
+    for (int i = 0; i < torsion_num_; ++i) {
+      for (int j = 0; j < motor_num_; ++j) {
+        const KDL::Frame thrust_frame(robot_model_->getSegmentsTf().at("thrust"+std::to_string(j+1)));
+        // const KDL::Frame link_frame(robot_model_->getSegmentsTf().at("link"+std::to_string(i+1)));
+        const KDL::Frame link_frame(robot_model_->getSegmentsTf().at("thrust"+std::to_string(i+1)));
+        KDL::Frame thrust_from_link = link_frame.Inverse() * thrust_frame;
+        double moment_arm_length = thrust_from_link.p.y();
+        B_torsion_tmp(i,j) = -moment_arm_length;
+      }
+    }
+    torsion_B_matrix_ = torsion_mode_matrix_ * B_torsion_tmp;
+
+    if (is_debug_ && debug_pub_throttle_count_%DEBUG_PUB_THROTTLE_FACTOR) {
+      std_msgs::Float32MultiArray B_msg, B_mode_msg;
+      B_msg.data.clear(); B_mode_msg.data.clear();
+      for (int i = 0; i < B_torsion_tmp.rows(); ++i) {
+        for (int j = 0; j < B_torsion_tmp.cols(); ++j) {
+          B_msg.data.push_back(B_torsion_tmp(i,j));
+        }
+      }
+      torsion_B_pub_.publish(B_msg);
+      for (int i = 0; i < torsion_B_matrix_.rows(); ++i) {
+        for (int j = 0; j < torsion_B_matrix_.cols(); ++j) {
+          B_mode_msg.data.push_back(torsion_B_matrix_(i,j));
+        }
+      }
+      torsion_B_mode_pub_.publish(B_mode_msg);
+    }
+  }
 
   for(int i = 0; i < mode_num_; i++) {
     A_tor(2*i, 2*i+1) = 1;
@@ -197,20 +308,26 @@ bool HydrusTiltedLQITorsionModeController::optimalGain()
   ROS_DEBUG_STREAM_NAMED("LQI gain generator",  "LQI gain generator: CARE: %f sec" << ros::Time::now().toSec() - t);
   ROS_DEBUG_STREAM_NAMED("LQI gain generator",  "LQI gain generator:  K \n" <<  K_);
 
+  if (is_debug_ && debug_pub_throttle_count_%DEBUG_PUB_THROTTLE_FACTOR) {
+    std_msgs::Float32MultiArray K_gain_msg;
+    K_gain_msg.data.clear();
+    for (int i = 0; i < K_.rows(); ++i) {
+      for (int j = 0; j < K_.cols(); ++j) {
+        K_gain_msg.data.push_back(K_(i,j));
+      }
+    }
+    K_gain_pub_.publish(K_gain_msg);
+  }
+
   // for torsion suppressive gains
   Eigen::VectorXd K_roll_torsion_corr = Eigen::VectorXd::Zero(mode_num_);
   Eigen::VectorXd K_pitch_torsion_corr = Eigen::VectorXd::Zero(mode_num_);
   Eigen::VectorXd K_yaw_torsion_corr = Eigen::VectorXd::Zero(mode_num_);
 
-  double K_roll_p_torsion_factor = 1;
-  double K_roll_i_torsion_factor = 1;
-  double K_roll_d_torsion_factor = 1;
-  double K_pitch_p_torsion_factor = 1;
-  double K_pitch_i_torsion_factor = 1;
-  double K_pitch_d_torsion_factor = 1;
-  double K_yaw_p_torsion_factor = 1;
-  double K_yaw_i_torsion_factor = 1;
-  double K_yaw_d_torsion_factor = 1;
+  // order is [roll_p, roll_i, roll_d, pitch_p, pitch_i, pitch_d, yaw_p, yaw_i, yaw_d]
+  std::vector<double> K_torsion_factors(9, 1.0);
+  Eigen::VectorXd K_factors_index(9);
+  K_factors_index << 2,lqi_mode_*2+1,3,4,lqi_mode_*2+2,5,6,lqi_mode_*2+3,7;
 
   for (int i = 0; i < mode_num_; ++i) {
     double K_torsion_norm = K_.col(lqi_mode_*3+i*2).norm();
@@ -219,39 +336,78 @@ bool HydrusTiltedLQITorsionModeController::optimalGain()
     K_pitch_torsion_corr[i] = K_.col(4).dot( K_.col(lqi_mode_*3+i*2) ) / K_.col(4).norm() / K_torsion_norm;
     K_yaw_torsion_corr[i] = K_.col(6).dot( K_.col(lqi_mode_*3+i*2) ) / K_.col(6).norm() / K_torsion_norm;
 
-    K_roll_p_torsion_factor  -= torsion_alpha_rp_p_ * K_torsion_norm * K_roll_torsion_corr[i] * K_roll_torsion_corr[i] * torsion_eigens_[0] / torsion_eigens_[i];
-    K_roll_i_torsion_factor  -= torsion_alpha_rp_i_ * K_torsion_norm * K_roll_torsion_corr[i] * K_roll_torsion_corr[i] * torsion_eigens_[0] / torsion_eigens_[i];
-    K_roll_d_torsion_factor  -= torsion_alpha_rp_d_ * K_torsion_norm * K_roll_torsion_corr[i] * K_roll_torsion_corr[i] * torsion_eigens_[0] / torsion_eigens_[i];
-    K_pitch_p_torsion_factor -= torsion_alpha_rp_p_ * K_torsion_norm * K_pitch_torsion_corr[i] * K_pitch_torsion_corr[i] * torsion_eigens_[0] / torsion_eigens_[i];
-    K_pitch_i_torsion_factor -= torsion_alpha_rp_i_ * K_torsion_norm * K_pitch_torsion_corr[i] * K_pitch_torsion_corr[i] * torsion_eigens_[0] / torsion_eigens_[i];
-    K_pitch_d_torsion_factor -= torsion_alpha_rp_d_ * K_torsion_norm * K_pitch_torsion_corr[i] * K_pitch_torsion_corr[i] * torsion_eigens_[0] / torsion_eigens_[i];
-    K_yaw_p_torsion_factor   -= torsion_alpha_y_p_  * K_torsion_norm * K_yaw_torsion_corr[i] * K_yaw_torsion_corr[i] * torsion_eigens_[0] / torsion_eigens_[i];
-    K_yaw_i_torsion_factor   -= torsion_alpha_y_i_  * K_torsion_norm * K_yaw_torsion_corr[i] * K_yaw_torsion_corr[i] * torsion_eigens_[0] / torsion_eigens_[i];
-    K_yaw_d_torsion_factor   -= torsion_alpha_y_d_  * K_torsion_norm * K_yaw_torsion_corr[i] * K_yaw_torsion_corr[i] * torsion_eigens_[0] / torsion_eigens_[i];
+    for (int j = 0; j < 9; ++j) {
+      double corr_squared = 0;
+      if      (int(j/3) == X) { corr_squared = K_roll_torsion_corr(i)*K_roll_torsion_corr(i); }
+      else if (int(j/3) == Y) { corr_squared = K_pitch_torsion_corr(i)*K_pitch_torsion_corr(i); }
+      else if (int(j/3) == Z) { corr_squared = K_yaw_torsion_corr(i)*K_yaw_torsion_corr(i); }
+      K_torsion_factors[j] -= torsion_alpha_[j] * K_torsion_norm * corr_squared * torsion_eigens_[0]/torsion_eigens_[i];
+    }
   }
-
-  K_roll_p_torsion_factor = std::max(K_roll_p_torsion_factor, torsion_epsilon_rp_p_);
-  K_roll_i_torsion_factor = std::max(K_roll_i_torsion_factor, torsion_epsilon_rp_i_);
-  K_roll_d_torsion_factor = std::max(K_roll_d_torsion_factor, torsion_epsilon_rp_d_);
-  K_pitch_p_torsion_factor = std::max(K_pitch_p_torsion_factor, torsion_epsilon_rp_p_);
-  K_pitch_i_torsion_factor = std::max(K_pitch_i_torsion_factor, torsion_epsilon_rp_i_);
-  K_pitch_d_torsion_factor = std::max(K_pitch_d_torsion_factor, torsion_epsilon_rp_d_);
-  K_yaw_p_torsion_factor = std::max(K_yaw_p_torsion_factor, torsion_epsilon_y_p_);
-  K_yaw_i_torsion_factor = std::max(K_yaw_i_torsion_factor, torsion_epsilon_y_i_);
-  K_yaw_d_torsion_factor = std::max(K_yaw_d_torsion_factor, torsion_epsilon_y_d_);
   ROS_DEBUG_STREAM("torsion corr roll :\n" << K_roll_torsion_corr);
   ROS_DEBUG_STREAM("torsion corr pitch:\n" << K_pitch_torsion_corr);
   ROS_DEBUG_STREAM("torsion corr yaw  :\n" << K_yaw_torsion_corr);
-  ROS_DEBUG_STREAM("torsion factor roll : P: " << K_roll_p_torsion_factor << ", I: " << K_roll_i_torsion_factor << ", D: " << K_roll_d_torsion_factor);
-  ROS_DEBUG_STREAM("torsion factor pitch: P: " << K_pitch_p_torsion_factor << ", I: " << K_pitch_i_torsion_factor << ", D: " << K_pitch_d_torsion_factor);
-  ROS_DEBUG_STREAM("torsion factor yaw  : P: " << K_yaw_p_torsion_factor << ", I: " << K_yaw_i_torsion_factor << ", D: " << K_yaw_d_torsion_factor);
+  ROS_DEBUG_STREAM("torsion factor roll : P: " << K_torsion_factors[0] << ", I: " << K_torsion_factors[1] << ", D: " << K_torsion_factors[2] );
+  ROS_DEBUG_STREAM("torsion factor pitch: P: " << K_torsion_factors[3] << ", I: " << K_torsion_factors[4] << ", D: " << K_torsion_factors[5] );
+  ROS_DEBUG_STREAM("torsion factor yaw  : P: " << K_torsion_factors[6] << ", I: " << K_torsion_factors[7] << ", D: " << K_torsion_factors[8] );
+
+  // gain shift using null space
+  if (is_use_torsion_null_space_shift_) {
+    for (int i = 0; i < 9; ++i) {
+      if (K_torsion_factors[i] < null_space_shift_thresh_) {
+        // nlopt::opt gain_opt(nlopt::LN_COBYLA, B_eom_kernel_.cols());
+        nlopt::opt gain_opt(nlopt::LN_PRAXIS, B_eom_kernel_.cols());
+        gain_opt.set_max_objective(maximizeTorsionDistanceFactor, this);
+        // TODO add upper and lower constraint using ratio to prevent burst!!!
+        double max_gain = K_.col(K_factors_index[i]).cwiseAbs().maxCoeff();
+        double bound = null_space_shift_limit_ratio_ * max_gain;
+        /* gain_opt.set_lower_bounds(-bound); */
+        /* gain_opt.set_upper_bounds( bound); */
+        gain_opt.set_xtol_rel(1e-4);
+        gain_opt.set_maxeval(null_space_shift_max_eval_);
+        std::vector<double> x(B_eom_kernel_.cols(), 0.0);
+        if (x.size() == kernel_mix_ratio_[i].size()) {
+          x = kernel_mix_ratio_[i];
+        }
+        double max_f = 0;
+        try{
+          nlopt_tmp_index_ = i;
+          nlopt::result result = gain_opt.optimize(x, max_f);
+        } catch (std::exception &e) {
+          ROS_ERROR_STREAM("nlopt failed: " << e.what());
+        }
+        kernel_mix_ratio_[i] = x;
+        ROS_DEBUG("nlopt result: ");
+        for (int j = 0; j < x.size(); ++j) {
+          ROS_DEBUG_STREAM("" << kernel_mix_ratio_[i][j]);
+        }
+
+        // mix
+        double limit_factor = 1.0;
+        double max_ratio = std::max(std::abs(*std::max_element(x.begin(), x.end())), std::abs(*std::min_element(x.begin(), x.end())));
+        if (max_ratio > bound) {
+          limit_factor = bound / max_ratio;
+        }
+
+        for (int j = 0; j < B_eom_kernel_.cols(); ++j) {
+          K_.col(K_factors_index[i]) += x[j] * B_eom_kernel_.col(j) * limit_factor;
+        }
+        K_.col(K_factors_index[i]) = K_.col(K_factors_index[i]) * max_gain/K_.col(K_factors_index[i]).cwiseAbs().maxCoeff();
+        K_torsion_factors[i] = max_f;
+      }
+    }
+  }
+
+  for (int i = 0; i < 9; ++i) {
+    K_torsion_factors[i] = std::max(K_torsion_factors[i], torsion_epsilon_[i]);
+  }
 
   for(int i = 0; i < motor_num_; ++i) {
-    roll_gains_.at(i) = Eigen::Vector3d(-K_(i,2)*K_roll_p_torsion_factor,  K_(i, lqi_mode_ * 2 + 1)*K_roll_i_torsion_factor, -K_(i,3)*K_roll_d_torsion_factor);
-    pitch_gains_.at(i) = Eigen::Vector3d(-K_(i,4)*K_pitch_p_torsion_factor, K_(i, lqi_mode_ * 2 + 2)*K_pitch_i_torsion_factor, -K_(i,5)*K_pitch_d_torsion_factor);
+    roll_gains_.at(i) = Eigen::Vector3d(-K_(i,2)*K_torsion_factors[0],  K_(i, lqi_mode_ * 2 + 1)*K_torsion_factors[1], -K_(i,3)*K_torsion_factors[2]);
+    pitch_gains_.at(i) = Eigen::Vector3d(-K_(i,4)*K_torsion_factors[3], K_(i, lqi_mode_ * 2 + 2)*K_torsion_factors[4], -K_(i,5)*K_torsion_factors[5]);
     z_gains_.at(i) = Eigen::Vector3d(-K_(i,0), K_(i, lqi_mode_ * 2), -K_(i,1));
     if(lqi_mode_ == 4) {
-      yaw_gains_.at(i) = Eigen::Vector3d(-K_(i,6)*K_yaw_p_torsion_factor, K_(i, lqi_mode_ * 2 + 3)*K_yaw_i_torsion_factor, -K_(i,7)*K_yaw_d_torsion_factor);
+      yaw_gains_.at(i) = Eigen::Vector3d(-K_(i,6)*K_torsion_factors[6], K_(i, lqi_mode_ * 2 + 3)*K_torsion_factors[7], -K_(i,7)*K_torsion_factors[8]);
     } else {
       yaw_gains_.at(i).setZero();
     }
@@ -267,7 +423,7 @@ bool HydrusTiltedLQITorsionModeController::optimalGain()
   }
 
   // for debug
-  if (is_debug_) {
+  if (is_debug_ && debug_pub_throttle_count_%DEBUG_PUB_THROTTLE_FACTOR) {
     std_msgs::Float32MultiArray K_gain_msg;
     K_gain_msg.data.clear();
     for (int i = 0; i < K_.rows(); ++i) {
@@ -275,8 +431,10 @@ bool HydrusTiltedLQITorsionModeController::optimalGain()
         K_gain_msg.data.push_back(K_(i,j));
       }
     }
-    K_gain_pub_.publish(K_gain_msg);
+    K_gain_shifted_pub_.publish(K_gain_msg);
   }
+
+  if (is_debug_) { debug_pub_throttle_count_++; }
 
   // compensation for gyro moment
   p_mat_pseudo_inv_ = aerial_robot_model::pseudoinverse(P.middleRows(2, lqi_mode_));
@@ -304,29 +462,65 @@ void HydrusTiltedLQITorsionModeController::rosParamInit()
   ros::NodeHandle lqi_nh(control_nh, "lqi");
   getParam<bool>(lqi_nh, "debug", is_debug_, false);
 
-  getParam<bool>(lqi_nh, "use_rbdl_b_rot", use_rbdl_b_rot_, 1.0);
+  getParam<bool>(lqi_nh, "use_rbdl_b_rot", use_rbdl_b_rot_, false);
   getParam<double>(lqi_nh, "trans_constraint_weight", trans_constraint_weight_, 1.0);
   getParam<double>(lqi_nh, "att_control_weight", att_control_weight_, 1.0);
 
   getParam<double>(lqi_nh, "torsional_spring_constant", torsional_spring_constant_, 1.0);
   getParam<int>(lqi_nh, "mode_num", mode_num_, motor_num_-4);
   getParam<double>(lqi_nh, "init_wait_time", init_wait_time_, 1.0);
+  getParam<bool>(lqi_nh, "use_rbdl_torsion_b", is_use_rbdl_torsion_B_, true);
 
   lqi_nh.getParam("q_mu", q_mu_);
   lqi_nh.getParam("q_mu_d", q_mu_d_);
 
-  getParam<double>(lqi_nh, "torsion_epsilon_rp_p", torsion_epsilon_rp_p_, 1);
-  getParam<double>(lqi_nh, "torsion_epsilon_rp_i", torsion_epsilon_rp_i_, 1);
-  getParam<double>(lqi_nh, "torsion_epsilon_rp_d", torsion_epsilon_rp_d_, 1);
-  getParam<double>(lqi_nh, "torsion_epsilon_y_p", torsion_epsilon_y_p_, 1);
-  getParam<double>(lqi_nh, "torsion_epsilon_y_i", torsion_epsilon_y_i_, 1);
-  getParam<double>(lqi_nh, "torsion_epsilon_y_d", torsion_epsilon_y_d_, 1);
-  getParam<double>(lqi_nh, "torsion_alpha_rp_p", torsion_alpha_rp_p_, 0.0);
-  getParam<double>(lqi_nh, "torsion_alpha_rp_i", torsion_alpha_rp_i_, 0.0);
-  getParam<double>(lqi_nh, "torsion_alpha_rp_d", torsion_alpha_rp_d_, 0.0);
-  getParam<double>(lqi_nh, "torsion_alpha_y_p", torsion_alpha_y_p_, 0.0);
-  getParam<double>(lqi_nh, "torsion_alpha_y_i", torsion_alpha_y_i_, 0.0);
-  getParam<double>(lqi_nh, "torsion_alpha_y_d", torsion_alpha_y_d_, 0.0);
+  getParam<bool>(lqi_nh, "use_torsion_null_space_shift", is_use_torsion_null_space_shift_, true);
+  getParam<double>(lqi_nh, "null_space_shift_thresh", null_space_shift_thresh_, 0.7);
+  getParam<double>(lqi_nh, "null_space_shift_limit_ratio", null_space_shift_limit_ratio_, 0.7);
+  getParam<double>(lqi_nh, "null_space_shift_init_ratio", null_space_shift_init_ratio_, 1.0);
+  getParam<int>(lqi_nh, "null_space_shift_max_eval", null_space_shift_max_eval_, 1000);
+  double torsion_alpha_rp_p;
+  double torsion_alpha_rp_i;
+  double torsion_alpha_rp_d;
+  double torsion_alpha_y_p;
+  double torsion_alpha_y_i;
+  double torsion_alpha_y_d;
+  double torsion_epsilon_rp_p;
+  double torsion_epsilon_rp_i;
+  double torsion_epsilon_rp_d;
+  double torsion_epsilon_y_p;
+  double torsion_epsilon_y_i;
+  double torsion_epsilon_y_d;
+  getParam<double>(lqi_nh, "torsion_epsilon_rp_p", torsion_epsilon_rp_p, 1);
+  getParam<double>(lqi_nh, "torsion_epsilon_rp_i", torsion_epsilon_rp_i, 1);
+  getParam<double>(lqi_nh, "torsion_epsilon_rp_d", torsion_epsilon_rp_d, 1);
+  getParam<double>(lqi_nh, "torsion_epsilon_y_p", torsion_epsilon_y_p, 1);
+  getParam<double>(lqi_nh, "torsion_epsilon_y_i", torsion_epsilon_y_i, 1);
+  getParam<double>(lqi_nh, "torsion_epsilon_y_d", torsion_epsilon_y_d, 1);
+  getParam<double>(lqi_nh, "torsion_alpha_rp_p", torsion_alpha_rp_p, 0.0);
+  getParam<double>(lqi_nh, "torsion_alpha_rp_i", torsion_alpha_rp_i, 0.0);
+  getParam<double>(lqi_nh, "torsion_alpha_rp_d", torsion_alpha_rp_d, 0.0);
+  getParam<double>(lqi_nh, "torsion_alpha_y_p", torsion_alpha_y_p, 0.0);
+  getParam<double>(lqi_nh, "torsion_alpha_y_i", torsion_alpha_y_i, 0.0);
+  getParam<double>(lqi_nh, "torsion_alpha_y_d", torsion_alpha_y_d, 0.0);
+  torsion_epsilon_[0] = torsion_epsilon_rp_p;
+  torsion_epsilon_[1] = torsion_epsilon_rp_i;
+  torsion_epsilon_[2] = torsion_epsilon_rp_d;
+  torsion_epsilon_[3] = torsion_epsilon_rp_p;
+  torsion_epsilon_[4] = torsion_epsilon_rp_i;
+  torsion_epsilon_[5] = torsion_epsilon_rp_d;
+  torsion_epsilon_[6] = torsion_epsilon_y_p;
+  torsion_epsilon_[7] = torsion_epsilon_y_i;
+  torsion_epsilon_[8] = torsion_epsilon_y_d;
+  torsion_alpha_[0] = torsion_alpha_rp_p;
+  torsion_alpha_[1] = torsion_alpha_rp_i;
+  torsion_alpha_[2] = torsion_alpha_rp_d;
+  torsion_alpha_[3] = torsion_alpha_rp_p;
+  torsion_alpha_[4] = torsion_alpha_rp_i;
+  torsion_alpha_[5] = torsion_alpha_rp_d;
+  torsion_alpha_[6] = torsion_alpha_y_p;
+  torsion_alpha_[7] = torsion_alpha_y_i;
+  torsion_alpha_[8] = torsion_alpha_y_d;
 }
 
 void HydrusTiltedLQITorsionModeController::cfgLQITorsionCallback(hydrus::LQI_torsionConfig &config, uint32_t level)
@@ -352,52 +546,70 @@ void HydrusTiltedLQITorsionModeController::cfgLQITorsionCallback(hydrus::LQI_tor
         printf("change the gain of lqi torsion mu d gain: %f\n", q_mu_d_[0]);
         break;
       case LQI_TORSION_EPSILON_RP_P:
-        torsion_epsilon_rp_p_ = config.torsion_epsilon_rp_p;
-        printf("change the gain of lqi torsion epsilon limit for roll&pitch p: %f\n", torsion_epsilon_rp_p_);
+        torsion_epsilon_[0] = config.torsion_epsilon_rp_p;
+        torsion_epsilon_[3] = config.torsion_epsilon_rp_p;
+        printf("change the gain of lqi torsion epsilon limit for roll&pitch p: %f\n", config.torsion_epsilon_rp_p);
         break;
       case LQI_TORSION_EPSILON_RP_I:
-        torsion_epsilon_rp_i_ = config.torsion_epsilon_rp_i;
-        printf("change the gain of lqi torsion epsilon limit for roll&pitch i: %f\n", torsion_epsilon_rp_i_);
+        torsion_epsilon_[1] = config.torsion_epsilon_rp_i;
+        torsion_epsilon_[4] = config.torsion_epsilon_rp_i;
+        printf("change the gain of lqi torsion epsilon limit for roll&pitch i: %f\n", config.torsion_epsilon_rp_i);
         break;
       case LQI_TORSION_EPSILON_RP_D:
-        torsion_epsilon_rp_d_ = config.torsion_epsilon_rp_d;
-        printf("change the gain of lqi torsion epsilon limit for roll&pitch d: %f\n", torsion_epsilon_rp_d_);
+        torsion_epsilon_[2] = config.torsion_epsilon_rp_d;
+        torsion_epsilon_[5] = config.torsion_epsilon_rp_d;
+        printf("change the gain of lqi torsion epsilon limit for roll&pitch d: %f\n", config.torsion_epsilon_rp_d);
         break;
       case LQI_TORSION_EPSILON_Y_P:
-        torsion_epsilon_y_p_ = config.torsion_epsilon_y_p;
-        printf("change the gain of lqi torsion epsilon limit for yaw p: %f\n", torsion_epsilon_y_p_);
+        torsion_epsilon_[6] = config.torsion_epsilon_y_p;
+        printf("change the gain of lqi torsion epsilon limit for yaw p: %f\n", config.torsion_epsilon_y_p);
         break;
       case LQI_TORSION_EPSILON_Y_I:
-        torsion_epsilon_y_i_ = config.torsion_epsilon_y_i;
-        printf("change the gain of lqi torsion epsilon limit for yaw i: %f\n", torsion_epsilon_y_i_);
+        torsion_epsilon_[7] = config.torsion_epsilon_y_i;
+        printf("change the gain of lqi torsion epsilon limit for yaw i: %f\n", config.torsion_epsilon_y_i);
         break;
       case LQI_TORSION_EPSILON_Y_D:
-        torsion_epsilon_y_d_ = config.torsion_epsilon_y_d;
-        printf("change the gain of lqi torsion epsilon limit for yaw d: %f\n", torsion_epsilon_y_d_);
+        torsion_epsilon_[8] = config.torsion_epsilon_y_d;
+        printf("change the gain of lqi torsion epsilon limit for yaw d: %f\n", config.torsion_epsilon_y_d);
         break;
       case LQI_TORSION_ALPHA_RP_P:
-        torsion_alpha_rp_p_ = config.torsion_alpha_rp_p;
-        printf("change the gain of lqi torsion alpha const for roll&pitch p: %f\n", torsion_alpha_rp_p_);
+        torsion_alpha_[0] = config.torsion_alpha_rp_p;
+        torsion_alpha_[3] = config.torsion_alpha_rp_p;
+        printf("change the gain of lqi torsion alpha const for roll&pitch p: %f\n", config.torsion_alpha_rp_p);
         break;
       case LQI_TORSION_ALPHA_RP_I:
-        torsion_alpha_rp_i_ = config.torsion_alpha_rp_i;
-        printf("change the gain of lqi torsion alpha const for roll&pitch i: %f\n", torsion_alpha_rp_i_);
+        torsion_alpha_[1] = config.torsion_alpha_rp_i;
+        torsion_alpha_[4] = config.torsion_alpha_rp_i;
+        printf("change the gain of lqi torsion alpha const for roll&pitch i: %f\n", config.torsion_alpha_rp_i);
         break;
       case LQI_TORSION_ALPHA_RP_D:
-        torsion_alpha_rp_d_ = config.torsion_alpha_rp_d;
-        printf("change the gain of lqi torsion alpha const for roll&pitch d: %f\n", torsion_alpha_rp_d_);
+        torsion_alpha_[2] = config.torsion_alpha_rp_d;
+        torsion_alpha_[5] = config.torsion_alpha_rp_d;
+        printf("change the gain of lqi torsion alpha const for roll&pitch d: %f\n", config.torsion_alpha_rp_d);
         break;
       case LQI_TORSION_ALPHA_Y_P:
-        torsion_alpha_y_p_ = config.torsion_alpha_y_p;
-        printf("change the gain of lqi torsion alpha const for yaw p: %f\n", torsion_alpha_y_p_);
+        torsion_alpha_[6] = config.torsion_alpha_y_p;
+        printf("change the gain of lqi torsion alpha const for yaw p: %f\n", config.torsion_alpha_y_p);
         break;
       case LQI_TORSION_ALPHA_Y_I:
-        torsion_alpha_y_i_ = config.torsion_alpha_y_i;
-        printf("change the gain of lqi torsion alpha const for yaw i: %f\n", torsion_alpha_y_i_);
+        torsion_alpha_[7] = config.torsion_alpha_y_i;
+        printf("change the gain of lqi torsion alpha const for yaw i: %f\n", config.torsion_alpha_y_i);
         break;
       case LQI_TORSION_ALPHA_Y_D:
-        torsion_alpha_y_d_ = config.torsion_alpha_y_d;
-        printf("change the gain of lqi torsion alpha const for yaw d: %f\n", torsion_alpha_y_d_);
+        torsion_alpha_[8] = config.torsion_alpha_y_d;
+        printf("change the gain of lqi torsion alpha const for yaw d: %f\n", config.torsion_alpha_y_d);
+        break;
+      case LQI_TORSION_NULL_SPACE_SHIFT_THREASH:
+        null_space_shift_thresh_ = config.null_space_shift_thresh;
+        printf("change the gain of lqi torsion null space shift thresh: %f\n", config.null_space_shift_thresh);
+        break;
+      case LQI_TORSION_NULL_SPACE_SHIFT_LIMIT_RATIO:
+        null_space_shift_limit_ratio_ = config.null_space_shift_limit_ratio;
+        printf("change the gain of lqi torsion null space shift limit ratio: %f\n", config.null_space_shift_limit_ratio);
+        break;
+      case LQI_TORSION_NULL_SPACE_SHIFT_INIT_RATIO:
+        null_space_shift_init_ratio_ = config.null_space_shift_init_ratio;
+        printf("change the gain of lqi torsion null space shift init ratio: %f\n", config.null_space_shift_init_ratio);
         break;
       default:
         printf("\n");

@@ -6,6 +6,7 @@
 
   <xacro:arg name="sim" default="false"/>
   <xacro:arg name="fix_rotor" default="0"/>
+  <xacro:arg name="root_on_fc" default="false"/>
 
   <!-- robot urdf -->
   <xacro:include filename="$(find hydrus)/robots/oct/oct_vibration_mode_202010/robot.urdf.xacro" />

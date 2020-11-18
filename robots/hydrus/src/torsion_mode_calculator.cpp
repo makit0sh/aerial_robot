@@ -16,6 +16,7 @@ TorsionModeCalculator::TorsionModeCalculator(ros::NodeHandle nh, ros::NodeHandle
   nhp_.param<int>("mode_num", mode_num_, rotor_num_-4); // TODO consider the used up dofs!!
   nhp_.param<double>("m_f_rate", m_f_rate_, -0.0172);
   nhp_.param<int>("link1_rotor_direction", link1_rotor_direction_, -1);
+  nhp_.param<bool>("use_rbdl_torsion_b", is_use_rbdl_torsion_B_, true);
 
   torsions_.resize(torsion_num_);
   torsions_d_.resize(torsion_num_);
@@ -28,13 +29,19 @@ TorsionModeCalculator::TorsionModeCalculator(ros::NodeHandle nh, ros::NodeHandle
     ROS_ERROR_STREAM("Error loading model " << control_model_urdf);
     abort();
   }
-  ROS_DEBUG_STREAM("Degree of freedom overview:" << Utils::GetModelDOFOverview(*model_));
+  ROS_INFO_STREAM("Degree of freedom overview:" << Utils::GetModelDOFOverview(*model_));
+  ROS_INFO_STREAM("model hierarchy overview:" << std::endl << RigidBodyDynamics::Utils::GetModelHierarchy(*model_));
   if (is_root_on_fc_ == false) {
     torsion_dof_update_order_ = rbdl_util::get_torsion_dof_update_order(model_, torsion_num_);
     joint_dof_update_order_ = rbdl_util::get_torsion_dof_update_order(model_, torsion_num_, "link", 2);
   } else {
-    torsion_dof_update_order_ = std::vector<unsigned int>{9, 7, 10, 12, 14};  //TODO remove, only for debug
-    joint_dof_update_order_ = std::vector<unsigned int>{6, 8, 11, 13, 15};  //TODO remove, only for debug
+    if (rotor_num_==6) {
+      torsion_dof_update_order_ = std::vector<unsigned int>{9, 7, 10, 12, 14};  //TODO remove, only for debug
+      joint_dof_update_order_ = std::vector<unsigned int>{6, 8, 11, 13, 15};  //TODO remove, only for debug
+    } else if (rotor_num_==8) {
+      torsion_dof_update_order_ = std::vector<unsigned int>{10, 8, 6, 12, 14, 16, 18};  //TODO remove, only for debug
+      joint_dof_update_order_ = std::vector<unsigned int>{11, 9, 7, 13, 15, 17, 19};  //TODO remove, only for debug
+    }
   }
 
   // ros subscribers
@@ -43,7 +50,10 @@ TorsionModeCalculator::TorsionModeCalculator(ros::NodeHandle nh, ros::NodeHandle
 
   // ros publishers
   eigen_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("torsion_eigens", 100);
-  B_mode_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("torsion_B_mode_matrix", 100);
+  if (is_use_rbdl_torsion_B_) {
+    B_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("torsion_B_matrix", 100);
+    B_mode_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("torsion_B_mode_matrix", 100);
+  }
   B_trans_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("torsion_B_trans_matrix", 100);
   B_rot_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("torsion_B_rot_matrix", 100);
   mode_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("torsion_mode_matrix", 100);
@@ -114,9 +124,10 @@ void TorsionModeCalculator::calculate() {
     int sigma = ((i%2==0) ? 1 : -1) * link1_rotor_direction_;
     MatrixNd point_jac = MatrixNd::Zero(6, model_->qdot_size);
     CalcPointJacobian6D(*model_, Q, model_->GetBodyId(("thrust"+std::to_string(i+1)).c_str()), Vector3d::Zero(), point_jac);
-    MatrixNd thrust_jac = sigma * H_inv * point_jac.transpose().col(5); // thrust is z axis is inverted with rotor direction
+    MatrixNd point_jac_inv = point_jac.completeOrthogonalDecomposition().pseudoInverse();
+    MatrixNd thrust_jac = H_inv * point_jac.transpose().col(5);
 
-    MatrixNd thrust_jac_counter_torque = m_f_rate_ * H_inv * point_jac.transpose().col(2); // thrust counter torque
+    MatrixNd thrust_jac_counter_torque = sigma * m_f_rate_ * H_inv * point_jac.transpose().col(2); // thrust counter torque TODO
     thrust_jac = thrust_jac + thrust_jac_counter_torque;
 
     VectorNd thrust_jac_att_torsion = VectorNd::Zero(q_joint_bias/2+torsion_num_);
@@ -221,8 +232,8 @@ void TorsionModeCalculator::calculate() {
   ROS_DEBUG_STREAM("B mode selected: " <<std::endl<< B_selected);
 
   // publish results
-  std_msgs::Float32MultiArray eigen_msg, B_msg, mode_msg, B_rot_msg, K_sys_msg;
-  eigen_msg.data.clear(); B_msg.data.clear(); mode_msg.data.clear(); K_sys_msg.data.clear();
+  std_msgs::Float32MultiArray eigen_msg, B_msg, mode_msg, B_rot_msg, K_sys_msg, B_org_msg;
+  eigen_msg.data.clear(); B_msg.data.clear(); mode_msg.data.clear(); K_sys_msg.data.clear(); B_org_msg.data.clear();
   for (int i = 0; i < mode_num_; ++i) {
     eigen_msg.data.push_back(sorted_mode_eigen_idx_pair[i].first);
     for (int j = 0; j < torsion_num_; ++j) {
@@ -239,10 +250,18 @@ void TorsionModeCalculator::calculate() {
       K_sys_msg.data.push_back(K(i,j));
     }
   }
+  for (int i = q_joint_bias/2; i < B.rows(); ++i) {
+    for (int j = 0; j < B.cols(); ++j) {
+      B_org_msg.data.push_back(B(i,j));
+    }
+  }
   eigen_pub_.publish(eigen_msg);
-  B_mode_pub_.publish(B_msg);
   mode_pub_.publish(mode_msg);
   K_sys_pub_.publish(K_sys_msg);
+  if (is_use_rbdl_torsion_B_) {
+    B_pub_.publish(B_org_msg);
+    B_mode_pub_.publish(B_msg);
+  }
 
   if (is_floating_) {
     for (int i = 0; i < q_joint_bias/2; ++i) {

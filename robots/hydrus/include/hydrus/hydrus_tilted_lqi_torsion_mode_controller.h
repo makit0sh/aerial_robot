@@ -44,6 +44,8 @@
 #include <vector>
 #include <algorithm>
 
+#include <nlopt.hpp>
+
 #include <rbdl/rbdl.h>
 #include <rbdl/rbdl_utils.h>
 
@@ -52,6 +54,8 @@
 #endif
 
 #include <rbdl/addons/urdfreader/urdfreader.h>
+
+#define DEBUG_PUB_THROTTLE_FACTOR 10
 
 #define LQI_TORSION_GAIN_FLAG 0
 #define LQI_TORSION_MU_P_GAIN 1
@@ -68,6 +72,9 @@
 #define LQI_TORSION_ALPHA_Y_P 12
 #define LQI_TORSION_ALPHA_Y_I 13
 #define LQI_TORSION_ALPHA_Y_D 14
+#define LQI_TORSION_NULL_SPACE_SHIFT_THREASH 15
+#define LQI_TORSION_NULL_SPACE_SHIFT_LIMIT_RATIO 16
+#define LQI_TORSION_NULL_SPACE_SHIFT_INIT_RATIO 17
 
 namespace aerial_robot_control
 {
@@ -83,6 +90,15 @@ namespace aerial_robot_control
                     boost::shared_ptr<aerial_robot_navigation::BaseNavigator> navigator,
                     double ctrl_loop_rate);
 
+    // for nlopt
+    inline int getNloptTmpIndex() const {return nlopt_tmp_index_; }
+    inline const Eigen::MatrixXd& getK() const {return K_;}
+    inline const Eigen::MatrixXd& getBEomKernel() const {return B_eom_kernel_;}
+    inline const std::array<double,9>& getTorsionAlpha() const {return torsion_alpha_;}
+    inline const std::vector<double>& getTorsionEigens() const {return torsion_eigens_;}
+    inline int getLQIMode() const {return lqi_mode_;}
+    inline int getModeNum() const {return mode_num_;}
+    inline const double& getNullSpaceShiftInitRatio() const {return null_space_shift_init_ratio_; }
   protected:
     void controlCore() override;
     bool optimalGain() override;
@@ -100,25 +116,33 @@ namespace aerial_robot_control
     double init_wait_time_;
 
     bool is_debug_;
+    int debug_pub_throttle_count_;
     ros::Publisher K_gain_pub_;
+    ros::Publisher K_gain_shifted_pub_;
+    ros::Publisher modes_pub_;
+    ros::Publisher modes_d_pub_;
+    ros::Publisher B_kernel_pub_;
+    std::vector<std::vector<double>> kernel_mix_ratio_;
+    Eigen::MatrixXd B_eom_kernel_;
+
+    bool is_use_rbdl_torsion_B_;
+    ros::Publisher torsion_B_pub_;
+    ros::Publisher torsion_B_mode_pub_;
 
     std::vector<double> q_mu_;
     std::vector<double> q_mu_d_;
     std::vector<std::vector<double>> q_mu_p_gains_;
     std::vector<std::vector<double>> q_mu_d_gains_;
 
-    double torsion_alpha_rp_p_;
-    double torsion_alpha_rp_i_;
-    double torsion_alpha_rp_d_;
-    double torsion_alpha_y_p_;
-    double torsion_alpha_y_i_;
-    double torsion_alpha_y_d_;
-    double torsion_epsilon_rp_p_;
-    double torsion_epsilon_rp_i_;
-    double torsion_epsilon_rp_d_;
-    double torsion_epsilon_y_p_;
-    double torsion_epsilon_y_i_;
-    double torsion_epsilon_y_d_;
+    // order is [roll_p, roll_i, roll_d, pitch_p, pitch_i, pitch_d, yaw_p, yaw_i, yaw_d]
+    std::array<double, 9> torsion_alpha_;
+    std::array<double, 9> torsion_epsilon_;
+    bool is_use_torsion_null_space_shift_;
+    double null_space_shift_thresh_;
+    double null_space_shift_limit_ratio_;
+    double null_space_shift_init_ratio_;
+    int null_space_shift_max_eval_;
+    int nlopt_tmp_index_;
 
     dynamic_reconfigure::Server<hydrus::LQI_torsionConfig>::CallbackType dynamic_reconf_func_lqi_torsion_;
     dynamic_reconfigure::Server<hydrus::LQI_torsionConfig>* lqi_torsion_server_;

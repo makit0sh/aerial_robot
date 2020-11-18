@@ -17,6 +17,7 @@ find_package(catkin REQUIRED COMPONENTS
   )
 
 find_package(Eigen3 REQUIRED)
+find_package(NLopt REQUIRED)
 # TODO Try building in catkin
 find_library(
   RBDL_LIBRARY
@@ -107,6 +108,7 @@ add_library(hydrus_controller_pluginlib
 target_link_libraries(hydrus_controller_pluginlib hydrus_robot_model 
   ${catkin_LIBRARIES} ${EIGEN3_LIBRARIES}
   ${RBDL_LIBRARY} ${RBDL_URDFReader_LIBRARY}
+  ${NLOPT_LIBRARIES}
   )
 add_dependencies(hydrus_controller_pluginlib aerial_robot_msgs_generate_messages_cpp spinal_generate_messages_cpp ${PROJECT_NAME}_gencfg)
 

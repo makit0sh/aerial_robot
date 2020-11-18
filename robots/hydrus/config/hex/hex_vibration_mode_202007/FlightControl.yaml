@@ -75,6 +75,7 @@ controller:
     q_mu: [0.1, 0.1]
     q_mu_d: [0.1, 0.1]
     use_rbdl_b_rot: false
+    use_rbdl_torsion_b: false
     # mode_num: 4
     # q_mu: [1, 1, 1, 1]
     # q_mu_d: [1, 1, 1, 1]
@@ -106,3 +107,8 @@ controller:
     torsion_alpha_y_i: 0.7
     torsion_alpha_y_d: 0.7
 
+    use_torsion_null_space_shift: false
+    null_space_shift_thresh: 0.9
+    null_space_shift_limit_ratio: 0.7
+    null_space_init_limit_ratio: 1.0
+    null_space_shift_max_eval: 1000

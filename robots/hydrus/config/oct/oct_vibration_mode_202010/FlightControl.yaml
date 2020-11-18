@@ -36,8 +36,8 @@ controller:
   # LQI gain generator
   lqi:
     debug: true
-    gain_generate_rate: 30.0
-    init_wait_time: 5
+    gain_generate_rate: 15.0
+    init_wait_time: 3
     gyro_moment_compensation: false
     clamp_gain: true
 
@@ -75,16 +75,23 @@ controller:
     q_mu: [1, 1, 1, 1]
     q_mu_d: [1, 1, 1, 1]
     use_rbdl_b_rot: false
+    use_rbdl_torsion_b: false
 
-    torsion_epsilon_rp_p: 0.1
-    torsion_epsilon_rp_i: 0.1
-    torsion_epsilon_rp_d: 0.1
-    torsion_epsilon_y_p: 0.1
-    torsion_epsilon_y_i: 0.1
-    torsion_epsilon_y_d: 0.1
+    torsion_epsilon_rp_p: 1.0
+    torsion_epsilon_rp_i: 1.0
+    torsion_epsilon_rp_d: 1.0
+    torsion_epsilon_y_p:  1.0
+    torsion_epsilon_y_i:  1.0
+    torsion_epsilon_y_d:  1.0
     torsion_alpha_rp_p: 0.1
     torsion_alpha_rp_i: 0.1
-    torsion_alpha_rp_d: 0.2
-    torsion_alpha_y_p: 0.2
-    torsion_alpha_y_i: 0.2
-    torsion_alpha_y_d: 0.2
+    torsion_alpha_rp_d: 0.1
+    torsion_alpha_y_p:  0.1
+    torsion_alpha_y_i:  0.1
+    torsion_alpha_y_d:  0.1
+
+    use_torsion_null_space_shift: true
+    null_space_shift_thresh: 0.9
+    null_space_shift_limit_ratio: 0.7
+    null_space_init_limit_ratio: 1.0
+    null_space_shift_max_eval: 1000

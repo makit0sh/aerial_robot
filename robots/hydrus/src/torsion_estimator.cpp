@@ -51,8 +51,8 @@ TorsionEstimator::TorsionEstimator (ros::NodeHandle nh, ros::NodeHandle nh_priva
     ROS_ERROR_STREAM("Error loading model " << control_model_urdf);
     abort();
   }
-  ROS_INFO_STREAM("Degree of freedom overview:" << std::endl << RigidBodyDynamics::Utils::GetModelDOFOverview(*model_));
-  ROS_INFO_STREAM("model hierarchy overview:" << std::endl << RigidBodyDynamics::Utils::GetModelHierarchy(*model_));
+  ROS_DEBUG_STREAM("Degree of freedom overview:" << std::endl << RigidBodyDynamics::Utils::GetModelDOFOverview(*model_));
+  ROS_DEBUG_STREAM("model hierarchy overview:" << std::endl << RigidBodyDynamics::Utils::GetModelHierarchy(*model_));
   /* TODO */
   torsion_dof_update_order_ = rbdl_util::get_torsion_dof_update_order(model_, link_num_-1);
   joint_dof_update_order_ = rbdl_util::get_torsion_dof_update_order(model_, link_num_-1, "link", 2);

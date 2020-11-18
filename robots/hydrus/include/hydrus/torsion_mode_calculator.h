@@ -46,6 +46,7 @@ class TorsionModeCalculator
     // ros publishers
     ros::Publisher eigen_pub_;
     ros::Publisher B_mode_pub_;
+    ros::Publisher B_pub_;
     ros::Publisher B_rot_pub_;
     ros::Publisher B_trans_pub_;
     ros::Publisher mode_pub_;
@@ -64,6 +65,7 @@ class TorsionModeCalculator
     double m_f_rate_;
     int link1_rotor_direction_;
     bool is_root_on_fc_;
+    bool is_use_rbdl_torsion_B_;
 
     std::vector<double> torsions_;
     std::vector<double> torsions_d_;
