@@ -16,12 +16,11 @@ namespace
     std::array<double,9> torsion_alpha = controller_ptr->getTorsionAlpha();
     std::vector<double> torsion_eigens = controller_ptr->getTorsionEigens();
     int nlopt_tmp_index = controller_ptr->getNloptTmpIndex();
-    double null_space_shift_init_ratio = controller_ptr->getNullSpaceShiftInitRatio();
     Eigen::VectorXd K_factors_index(9);
     K_factors_index << 2,lqi_mode*2+1,3,4,lqi_mode*2+2,5,6,lqi_mode*2+3,7;
 
     K_gain = K.col(K_factors_index(nlopt_tmp_index));
-    K_gain = K_gain / K_gain.cwiseAbs().maxCoeff() * null_space_shift_init_ratio;
+    K_gain.normalize();
 
     for (int i = 0; i < B_eom_kernel.cols(); ++i) {
       K_gain = K_gain + x[i]*B_eom_kernel.col(i);
@@ -47,6 +46,7 @@ void HydrusTiltedLQITorsionModeController::initialize(ros::NodeHandle nh,
 
   desired_baselink_rot_pub_ = nh_.advertise<spinal::DesireCoord>("desire_coordinate", 1);
 
+  nlopt_throttle_count_=0;
   if (is_debug_) {
     debug_pub_throttle_count_ = 0;
     K_gain_pub_ = nhp_.advertise<std_msgs::Float32MultiArray>("K_gain", 1);
@@ -75,6 +75,9 @@ void HydrusTiltedLQITorsionModeController::initialize(ros::NodeHandle nh,
   torsion_B_matrix_.resize(mode_num_, motor_num_);
   torsion_B_rot_matrix_.resize(3, motor_num_);
   kernel_mix_ratio_.resize(9);
+  for (int i = 0; i < kernel_mix_ratio_.size(); ++i) {
+    kernel_mix_ratio_[i].resize(motor_num_, 0.0);
+  }
 
   link_torsion_sub_ = nh_.subscribe<sensor_msgs::JointState>("link_torsion/joint_states", 10, &HydrusTiltedLQITorsionModeController::linkTorsionCallback, this);
   eigen_sub_ = nh_.subscribe<std_msgs::Float32MultiArray>("torsion_eigens", 10, &HydrusTiltedLQITorsionModeController::torsionEigensCallback, this);
@@ -353,40 +356,45 @@ bool HydrusTiltedLQITorsionModeController::optimalGain()
 
   // gain shift using null space
   if (is_use_torsion_null_space_shift_) {
-    for (int i = 0; i < 9; i=i+3) {
-        // nlopt::opt gain_opt(nlopt::LN_COBYLA, B_eom_kernel_.cols());
-        nlopt::opt gain_opt(nlopt::LN_PRAXIS, B_eom_kernel_.cols());
-        gain_opt.set_max_objective(maximizeTorsionDistanceFactor, this);
-        // TODO add upper and lower constraint using ratio to prevent burst!!!
-        /* double max_gain = K_.col(K_factors_index[i]).cwiseAbs().maxCoeff(); */
-        /* double bound = null_space_shift_limit_ratio_ * max_gain; */
-        /* gain_opt.set_lower_bounds(-bound); */
-        /* gain_opt.set_upper_bounds( bound); */
-        gain_opt.set_xtol_rel(1e-4);
-        gain_opt.set_maxeval(null_space_shift_max_eval_);
-        std::vector<double> x(B_eom_kernel_.cols(), 0.0);
-        if (x.size() == kernel_mix_ratio_[i].size()) {
-          x = kernel_mix_ratio_[i];
-        }
-        double max_f = 0;
-        try{
-          nlopt_tmp_index_ = i;
-          nlopt::result result = gain_opt.optimize(x, max_f);
-        } catch (std::exception &e) {
-          ROS_ERROR_STREAM("nlopt failed: " << e.what());
-        }
-        // TODO
-        kernel_mix_ratio_[i] = x; // p
-        kernel_mix_ratio_[i+1] = x; // i
-        for (int j = 0; j < x.size(); ++j) {
-          kernel_mix_ratio_[i+1][j] *= -1;
-        }
-        kernel_mix_ratio_[i+2] = x; // d
-        ROS_DEBUG("nlopt result: ");
-        for (int j = 0; j < x.size(); ++j) {
-          ROS_DEBUG_STREAM("" << kernel_mix_ratio_[i][j]);
-        }
+    if (nlopt_throttle_count_%nlopt_throttle_factor_) {
+      for (int i = 0; i < 9; i=i+3) {
+          // nlopt::opt gain_opt(nlopt::LN_COBYLA, B_eom_kernel_.cols());
+          // nlopt::opt gain_opt(nlopt::LN_PRAXIS, B_eom_kernel_.cols());
+          nlopt::opt gain_opt(nlopt::GN_DIRECT, B_eom_kernel_.cols());
+          gain_opt.set_max_objective(maximizeTorsionDistanceFactor, this);
+          // TODO add upper and lower constraint using ratio to prevent burst!!!
+          double max_gain = K_.col(K_factors_index[i]).cwiseAbs().maxCoeff();
+          double bound = null_space_shift_limit_ratio_ * max_gain;
+          gain_opt.set_lower_bounds(-bound);
+          gain_opt.set_upper_bounds( bound);
+          gain_opt.set_xtol_rel(1e-4);
+          gain_opt.set_maxeval(null_space_shift_max_eval_);
+          std::vector<double> x(B_eom_kernel_.cols(), 0.0);
+          /* if (x.size() == kernel_mix_ratio_[i].size()) { */
+          /*   for (int j = 0; j < x.size(); ++j) { */
+          /*     x[j] = kernel_mix_ratio_[i][j] * 0.9; // to prevent bound violation */
+          /*   } */
+          /* } */
+          double max_f = 0;
+          try{
+            nlopt_tmp_index_ = i;
+            nlopt::result result = gain_opt.optimize(x, max_f);
+          } catch (std::exception &e) {
+            ROS_ERROR_STREAM("nlopt failed: " << e.what());
+          }
+          // TODO
+          for (int j = 0; j < x.size(); ++j) {
+            kernel_mix_ratio_[i][j] = x[j]; // p
+            kernel_mix_ratio_[i+1][j] = -x[j]; // i
+            kernel_mix_ratio_[i+2][j] = x[j]; // d
+          }
+          ROS_DEBUG("nlopt result: ");
+          for (int j = 0; j < x.size(); ++j) {
+            ROS_DEBUG_STREAM("" << kernel_mix_ratio_[i][j]);
+          }
+      }
     }
+    nlopt_throttle_count_++;
 
     for (int i = 0; i < 9; ++i) {
       if (K_torsion_factors[i] < null_space_shift_thresh_) {
@@ -394,15 +402,16 @@ bool HydrusTiltedLQITorsionModeController::optimalGain()
         double limit_factor = 1.0;
         double max_ratio = std::max(std::abs(*std::max_element(kernel_mix_ratio_[i].begin(), kernel_mix_ratio_[i].end())), std::abs(*std::min_element(kernel_mix_ratio_[i].begin(), kernel_mix_ratio_[i].end())));
         double max_gain = K_.col(K_factors_index[i]).cwiseAbs().maxCoeff();
-        double bound = null_space_shift_limit_ratio_ * max_gain;
-        if (max_ratio > bound) {
-          limit_factor = bound / max_ratio;
+        if (max_ratio > null_space_shift_mix_limit_) {
+          limit_factor = null_space_shift_mix_limit_ / max_ratio;
         }
+        double norm_org = K_.col(K_factors_index[i]).norm();
 
         for (int j = 0; j < B_eom_kernel_.cols(); ++j) {
-          K_.col(K_factors_index[i]) += kernel_mix_ratio_[i][j] * B_eom_kernel_.col(j) * limit_factor;
+          K_.col(K_factors_index[i]) += kernel_mix_ratio_[i][j] * B_eom_kernel_.col(j) * norm_org * limit_factor;
         }
-        K_.col(K_factors_index[i]) = K_.col(K_factors_index[i]) * max_gain/K_.col(K_factors_index[i]).cwiseAbs().maxCoeff();
+        K_.col(K_factors_index[i]) = K_.col(K_factors_index[i]) * norm_org/K_.col(K_factors_index[i]).norm();
+        // K_.col(K_factors_index[i]) = K_.col(K_factors_index[i]) * max_gain/K_.col(K_factors_index[i]).cwiseAbs().maxCoeff();
         // K_torsion_factors[i] = max_f;
       }
     }
@@ -487,8 +496,9 @@ void HydrusTiltedLQITorsionModeController::rosParamInit()
   getParam<bool>(lqi_nh, "use_torsion_null_space_shift", is_use_torsion_null_space_shift_, true);
   getParam<double>(lqi_nh, "null_space_shift_thresh", null_space_shift_thresh_, 0.7);
   getParam<double>(lqi_nh, "null_space_shift_limit_ratio", null_space_shift_limit_ratio_, 0.7);
-  getParam<double>(lqi_nh, "null_space_shift_init_ratio", null_space_shift_init_ratio_, 1.0);
+  getParam<double>(lqi_nh, "null_space_shift_mix_limit", null_space_shift_mix_limit_, 0.7);
   getParam<int>(lqi_nh, "null_space_shift_max_eval", null_space_shift_max_eval_, 1000);
+  getParam<int>(lqi_nh, "nlopt_throttle_factor", nlopt_throttle_factor_, 1);
   double torsion_alpha_rp_p;
   double torsion_alpha_rp_i;
   double torsion_alpha_rp_d;
@@ -617,9 +627,9 @@ void HydrusTiltedLQITorsionModeController::cfgLQITorsionCallback(hydrus::LQI_tor
         null_space_shift_limit_ratio_ = config.null_space_shift_limit_ratio;
         printf("change the gain of lqi torsion null space shift limit ratio: %f\n", config.null_space_shift_limit_ratio);
         break;
-      case LQI_TORSION_NULL_SPACE_SHIFT_INIT_RATIO:
-        null_space_shift_init_ratio_ = config.null_space_shift_init_ratio;
-        printf("change the gain of lqi torsion null space shift init ratio: %f\n", config.null_space_shift_init_ratio);
+      case LQI_TORSION_NULL_SPACE_SHIFT_MIX_LIMIT:
+        null_space_shift_mix_limit_ = config.null_space_shift_mix_limit;
+        printf("change the gain of lqi torsion null space shift mix limit: %f\n", config.null_space_shift_mix_limit);
         break;
       default:
         printf("\n");

@@ -74,7 +74,7 @@
 #define LQI_TORSION_ALPHA_Y_D 14
 #define LQI_TORSION_NULL_SPACE_SHIFT_THREASH 15
 #define LQI_TORSION_NULL_SPACE_SHIFT_LIMIT_RATIO 16
-#define LQI_TORSION_NULL_SPACE_SHIFT_INIT_RATIO 17
+#define LQI_TORSION_NULL_SPACE_SHIFT_MIX_LIMIT 17
 
 namespace aerial_robot_control
 {
@@ -98,7 +98,6 @@ namespace aerial_robot_control
     inline const std::vector<double>& getTorsionEigens() const {return torsion_eigens_;}
     inline int getLQIMode() const {return lqi_mode_;}
     inline int getModeNum() const {return mode_num_;}
-    inline const double& getNullSpaceShiftInitRatio() const {return null_space_shift_init_ratio_; }
   protected:
     void controlCore() override;
     bool optimalGain() override;
@@ -140,9 +139,11 @@ namespace aerial_robot_control
     bool is_use_torsion_null_space_shift_;
     double null_space_shift_thresh_;
     double null_space_shift_limit_ratio_;
-    double null_space_shift_init_ratio_;
+    double null_space_shift_mix_limit_;
     int null_space_shift_max_eval_;
     int nlopt_tmp_index_;
+    int nlopt_throttle_count_;
+    int nlopt_throttle_factor_;
 
     dynamic_reconfigure::Server<hydrus::LQI_torsionConfig>::CallbackType dynamic_reconf_func_lqi_torsion_;
     dynamic_reconfigure::Server<hydrus::LQI_torsionConfig>* lqi_torsion_server_;
