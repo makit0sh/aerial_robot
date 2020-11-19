@@ -353,14 +353,13 @@ bool HydrusTiltedLQITorsionModeController::optimalGain()
 
   // gain shift using null space
   if (is_use_torsion_null_space_shift_) {
-    for (int i = 0; i < 9; ++i) {
-      if (K_torsion_factors[i] < null_space_shift_thresh_) {
+    for (int i = 0; i < 9; i=i+3) {
         // nlopt::opt gain_opt(nlopt::LN_COBYLA, B_eom_kernel_.cols());
         nlopt::opt gain_opt(nlopt::LN_PRAXIS, B_eom_kernel_.cols());
         gain_opt.set_max_objective(maximizeTorsionDistanceFactor, this);
         // TODO add upper and lower constraint using ratio to prevent burst!!!
-        double max_gain = K_.col(K_factors_index[i]).cwiseAbs().maxCoeff();
-        double bound = null_space_shift_limit_ratio_ * max_gain;
+        /* double max_gain = K_.col(K_factors_index[i]).cwiseAbs().maxCoeff(); */
+        /* double bound = null_space_shift_limit_ratio_ * max_gain; */
         /* gain_opt.set_lower_bounds(-bound); */
         /* gain_opt.set_upper_bounds( bound); */
         gain_opt.set_xtol_rel(1e-4);
@@ -376,24 +375,35 @@ bool HydrusTiltedLQITorsionModeController::optimalGain()
         } catch (std::exception &e) {
           ROS_ERROR_STREAM("nlopt failed: " << e.what());
         }
-        kernel_mix_ratio_[i] = x;
+        // TODO
+        kernel_mix_ratio_[i] = x; // p
+        kernel_mix_ratio_[i+1] = x; // i
+        for (int j = 0; j < x.size(); ++j) {
+          kernel_mix_ratio_[i+1][j] *= -1;
+        }
+        kernel_mix_ratio_[i+2] = x; // d
         ROS_DEBUG("nlopt result: ");
         for (int j = 0; j < x.size(); ++j) {
           ROS_DEBUG_STREAM("" << kernel_mix_ratio_[i][j]);
         }
+    }
 
+    for (int i = 0; i < 9; ++i) {
+      if (K_torsion_factors[i] < null_space_shift_thresh_) {
         // mix
         double limit_factor = 1.0;
-        double max_ratio = std::max(std::abs(*std::max_element(x.begin(), x.end())), std::abs(*std::min_element(x.begin(), x.end())));
+        double max_ratio = std::max(std::abs(*std::max_element(kernel_mix_ratio_[i].begin(), kernel_mix_ratio_[i].end())), std::abs(*std::min_element(kernel_mix_ratio_[i].begin(), kernel_mix_ratio_[i].end())));
+        double max_gain = K_.col(K_factors_index[i]).cwiseAbs().maxCoeff();
+        double bound = null_space_shift_limit_ratio_ * max_gain;
         if (max_ratio > bound) {
           limit_factor = bound / max_ratio;
         }
 
         for (int j = 0; j < B_eom_kernel_.cols(); ++j) {
-          K_.col(K_factors_index[i]) += x[j] * B_eom_kernel_.col(j) * limit_factor;
+          K_.col(K_factors_index[i]) += kernel_mix_ratio_[i][j] * B_eom_kernel_.col(j) * limit_factor;
         }
         K_.col(K_factors_index[i]) = K_.col(K_factors_index[i]) * max_gain/K_.col(K_factors_index[i]).cwiseAbs().maxCoeff();
-        K_torsion_factors[i] = max_f;
+        // K_torsion_factors[i] = max_f;
       }
     }
   }
