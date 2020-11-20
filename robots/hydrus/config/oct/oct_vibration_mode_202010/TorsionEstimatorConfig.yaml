@@ -9,7 +9,7 @@ use_simple_system_model: true
 use_K_sys: false
 use_adj_joint_calculation: true
 base_link_id: 1
-torsion_vel_cutoff_freq: 6.0
+torsion_vel_cutoff_freq: 3.0
 torsion_vel_q: 1.0
 torsion_cutoff_freq: 10.0
 torsion_q: 1.0
