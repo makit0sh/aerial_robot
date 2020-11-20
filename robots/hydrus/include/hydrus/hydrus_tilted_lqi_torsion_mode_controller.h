@@ -137,6 +137,7 @@ namespace aerial_robot_control
     std::array<double, 9> torsion_alpha_;
     std::array<double, 9> torsion_epsilon_;
     bool is_use_torsion_null_space_shift_;
+    bool is_nlopt_use_global_;
     double null_space_shift_thresh_;
     double null_space_shift_limit_ratio_;
     double null_space_shift_mix_limit_;
@@ -144,6 +145,7 @@ namespace aerial_robot_control
     int nlopt_tmp_index_;
     int nlopt_throttle_count_;
     int nlopt_throttle_factor_;
+    double nlopt_xtol_rel_;
 
     dynamic_reconfigure::Server<hydrus::LQI_torsionConfig>::CallbackType dynamic_reconf_func_lqi_torsion_;
     dynamic_reconfigure::Server<hydrus::LQI_torsionConfig>* lqi_torsion_server_;

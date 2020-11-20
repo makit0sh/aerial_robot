@@ -92,7 +92,9 @@ controller:
 
     use_torsion_null_space_shift: true
     null_space_shift_thresh: 0.9
-    null_space_shift_limit_ratio: 0.5
-    null_space_shift_mix_limit: 0.3
+    null_space_shift_limit_ratio: 10.0
+    null_space_shift_mix_limit: 0.15
     null_space_shift_max_eval: 1000
-    nlopt_throttle_factor: 50
+    nlopt_throttle_factor: 2
+    nlopt_use_global: false
+    nlopt_xtol_rel: 0.001
