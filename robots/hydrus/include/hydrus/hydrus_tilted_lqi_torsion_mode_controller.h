@@ -44,8 +44,6 @@
 #include <vector>
 #include <algorithm>
 
-#include <nlopt.hpp>
-
 #include <rbdl/rbdl.h>
 #include <rbdl/rbdl_utils.h>
 
@@ -72,9 +70,6 @@
 #define LQI_TORSION_ALPHA_Y_P 12
 #define LQI_TORSION_ALPHA_Y_I 13
 #define LQI_TORSION_ALPHA_Y_D 14
-#define LQI_TORSION_NULL_SPACE_SHIFT_THREASH 15
-#define LQI_TORSION_NULL_SPACE_SHIFT_LIMIT_RATIO 16
-#define LQI_TORSION_NULL_SPACE_SHIFT_MIX_LIMIT 17
 
 namespace aerial_robot_control
 {
@@ -90,14 +85,6 @@ namespace aerial_robot_control
                     boost::shared_ptr<aerial_robot_navigation::BaseNavigator> navigator,
                     double ctrl_loop_rate);
 
-    // for nlopt
-    inline int getNloptTmpIndex() const {return nlopt_tmp_index_; }
-    inline const Eigen::MatrixXd& getK() const {return K_;}
-    inline const Eigen::MatrixXd& getBEomKernel() const {return B_eom_kernel_;}
-    inline const std::array<double,9>& getTorsionAlpha() const {return torsion_alpha_;}
-    inline const std::vector<double>& getTorsionEigens() const {return torsion_eigens_;}
-    inline int getLQIMode() const {return lqi_mode_;}
-    inline int getModeNum() const {return mode_num_;}
   protected:
     void controlCore() override;
     bool optimalGain() override;
@@ -124,6 +111,16 @@ namespace aerial_robot_control
     std::vector<std::vector<double>> kernel_mix_ratio_;
     Eigen::MatrixXd B_eom_kernel_;
 
+    ros::Publisher K_gain_shift_pub_;
+    ros::Publisher K_mode_shift_pub_;
+    ros::Publisher B_eom_kernel_pub_;
+    ros::Publisher nlopt_alpha_pub_;
+    ros::Subscriber kernel_mix_ratio_sub_;
+    void kernelMixRatioCallback(const std_msgs::Float32MultiArrayConstPtr& msg);
+    void EigenMatrixFloat32MultiArrayPublish(const ros::Publisher& pub, const Eigen::MatrixXd& mat);
+    double null_space_shift_thresh_;
+    double null_space_shift_mix_limit_;
+
     bool is_use_rbdl_torsion_B_;
     ros::Publisher torsion_B_pub_;
     ros::Publisher torsion_B_mode_pub_;
@@ -137,15 +134,8 @@ namespace aerial_robot_control
     std::array<double, 9> torsion_alpha_;
     std::array<double, 9> torsion_epsilon_;
     bool is_use_torsion_null_space_shift_;
-    bool is_nlopt_use_global_;
-    double null_space_shift_thresh_;
-    double null_space_shift_limit_ratio_;
-    double null_space_shift_mix_limit_;
-    int null_space_shift_max_eval_;
-    int nlopt_tmp_index_;
     int nlopt_throttle_count_;
     int nlopt_throttle_factor_;
-    double nlopt_xtol_rel_;
 
     dynamic_reconfigure::Server<hydrus::LQI_torsionConfig>::CallbackType dynamic_reconf_func_lqi_torsion_;
     dynamic_reconfigure::Server<hydrus::LQI_torsionConfig>* lqi_torsion_server_;

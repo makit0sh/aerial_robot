@@ -4,6 +4,8 @@
 #include <iostream>
 
 #include <ros/ros.h>
+#include <tf2_ros/transform_listener.h>
+#include <geometry_msgs/TransformStamped.h>
 
 #include <rbdl/rbdl.h>
 #include <rbdl/rbdl_utils.h>
@@ -14,6 +16,7 @@
 
 #include <rbdl/addons/urdfreader/urdfreader.h>
 #include <hydrus/util/rbdl_util.h>
+#include <aerial_robot_control/control/utils/care.h>
 
 #include <Eigen/Dense>
 #include <algorithm>
@@ -25,6 +28,8 @@
 #include <hydrus/torsion_modeConfig.h>
 #define RECONFITURE_TORSION_MODE_FLAG 0
 #define TORSION_CONSTANT 1
+#define TORSION_Q_MU 2
+#define TORSION_Q_MU_D 3
 
 using namespace RigidBodyDynamics;
 using namespace RigidBodyDynamics::Math;
@@ -40,6 +45,9 @@ class TorsionModeCalculator
   private:
     ros::NodeHandle nh_;
     ros::NodeHandle nhp_;
+
+    tf2_ros::Buffer tfBuffer_;
+    tf2_ros::TransformListener tfListener_;
     // ros subscribers
     ros::Subscriber joint_sub_;
     ros::Subscriber torsion_joint_sub_;
@@ -47,8 +55,6 @@ class TorsionModeCalculator
     ros::Publisher eigen_pub_;
     ros::Publisher B_mode_pub_;
     ros::Publisher B_pub_;
-    ros::Publisher B_rot_pub_;
-    ros::Publisher B_trans_pub_;
     ros::Publisher mode_pub_;
     ros::Publisher K_sys_pub_;
 
@@ -56,6 +62,7 @@ class TorsionModeCalculator
     std::vector<unsigned int> torsion_dof_update_order_;
     std::vector<unsigned int> joint_dof_update_order_;
 
+    std::string robot_ns_;
     bool is_floating_;
     int rotor_num_;
     int torsion_num_;
@@ -66,6 +73,12 @@ class TorsionModeCalculator
     int link1_rotor_direction_;
     bool is_root_on_fc_;
     bool is_use_rbdl_torsion_B_;
+
+    bool is_publish_lqr_gain_;
+    double q_mu_;
+    double q_mu_d_;
+    ros::Publisher K_lqr_mode_pub_;
+    void EigenMatrixFloat32MultiArrayPublish(const ros::Publisher& pub, const Eigen::MatrixXd& mat);
 
     std::vector<double> torsions_;
     std::vector<double> torsions_d_;

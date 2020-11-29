@@ -2,39 +2,6 @@
 
 using namespace aerial_robot_control;
 
-namespace
-{
-  double maximizeTorsionDistanceFactor(const std::vector<double> &x, std::vector<double> &grad, void *data) 
-  {
-    HydrusTiltedLQITorsionModeController *controller_ptr = reinterpret_cast<HydrusTiltedLQITorsionModeController*>(data);
-
-    double torsion_factor = 1.0;
-    Eigen::MatrixXd K = controller_ptr->getK();
-    Eigen::VectorXd K_gain;
-    Eigen::MatrixXd B_eom_kernel = controller_ptr->getBEomKernel();
-    int lqi_mode = controller_ptr->getLQIMode();
-    std::array<double,9> torsion_alpha = controller_ptr->getTorsionAlpha();
-    std::vector<double> torsion_eigens = controller_ptr->getTorsionEigens();
-    int nlopt_tmp_index = controller_ptr->getNloptTmpIndex();
-    Eigen::VectorXd K_factors_index(9);
-    K_factors_index << 2,lqi_mode*2+1,3,4,lqi_mode*2+2,5,6,lqi_mode*2+3,7;
-
-    K_gain = K.col(K_factors_index(nlopt_tmp_index));
-    K_gain.normalize();
-
-    for (int i = 0; i < B_eom_kernel.cols(); ++i) {
-      K_gain = K_gain + x[i]*B_eom_kernel.col(i);
-    }
-
-    for (int i = 0; i < controller_ptr->getModeNum(); ++i) {
-      double K_torsion_norm = K.col(lqi_mode*3+i*2).norm();
-      double K_corr = K_gain.dot( K.col(lqi_mode*3+i*2) ) / K_gain.norm() / K_torsion_norm;
-      torsion_factor -= torsion_alpha.at(nlopt_tmp_index) * K_torsion_norm * K_corr*K_corr * torsion_eigens.at(0)/torsion_eigens.at(i); //BUG??
-    }
-    return torsion_factor;
-  }
-}
-
 void HydrusTiltedLQITorsionModeController::initialize(ros::NodeHandle nh,
                                            ros::NodeHandle nhp,
                                            boost::shared_ptr<aerial_robot_model::RobotModel> robot_model,
@@ -58,6 +25,13 @@ void HydrusTiltedLQITorsionModeController::initialize(ros::NodeHandle nh,
       torsion_B_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("torsion_B_matrix", 1);
       torsion_B_mode_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("torsion_B_mode_matrix", 1);
     }
+  }
+  if (is_use_torsion_null_space_shift_) {
+    K_gain_shift_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("K_gain_for_shift", 1);
+    K_mode_shift_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("K_mode", 1);
+    B_eom_kernel_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("B_eom_kernel", 1);
+    nlopt_alpha_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("nlopt_alpha", 1);
+    kernel_mix_ratio_sub_ = nh_.subscribe<std_msgs::Float32MultiArray>("kernel_mix_ratio", 1, &HydrusTiltedLQITorsionModeController::kernelMixRatioCallback, this);
   }
 
   pid_msg_.z.p_term.resize(1);
@@ -357,44 +331,27 @@ bool HydrusTiltedLQITorsionModeController::optimalGain()
   // gain shift using null space
   if (is_use_torsion_null_space_shift_) {
     if (nlopt_throttle_count_%nlopt_throttle_factor_) {
-      for (int i = 0; i < 9; i=i+3) {
-        std::vector<double> x(B_eom_kernel_.cols(), 0.0);
-        double bound = std::abs(null_space_shift_limit_ratio_);
-        for (int j = 0; j < x.size(); ++j) {
-          double initial_val = kernel_mix_ratio_[i][j];
-          if (std::abs(initial_val) < bound) {
-            x[j] = initial_val;
-          }
-        }
-        try{
-          auto nlopt_algorithm = nlopt::GN_DIRECT;
-          if (is_nlopt_use_global_) {
-            nlopt_algorithm = nlopt::GN_DIRECT;
-          } else {
-            nlopt_algorithm = nlopt::LN_COBYLA;//nlopt::LN_PRAXIS
-          }
-          nlopt::opt gain_opt(nlopt::GN_DIRECT, B_eom_kernel_.cols());
-          gain_opt.set_max_objective(maximizeTorsionDistanceFactor, this);
-          gain_opt.set_lower_bounds(-bound);
-          gain_opt.set_upper_bounds( bound);
-          gain_opt.set_xtol_rel(nlopt_xtol_rel_);
-          gain_opt.set_maxeval(null_space_shift_max_eval_);
-          double max_f = 0;
-          nlopt_tmp_index_ = i;
-          nlopt::result result = gain_opt.optimize(x, max_f);
-        } catch (std::exception &e) {
-          ROS_WARN_STREAM("nlopt failed: " << e.what());
-        }
-        for (int j = 0; j < x.size(); ++j) {
-          kernel_mix_ratio_[i][j] = x[j]; // p
-          kernel_mix_ratio_[i+1][j] = -x[j]; // i
-          kernel_mix_ratio_[i+2][j] = x[j]; // d
-        }
-        ROS_DEBUG("nlopt result: ");
-        for (int j = 0; j < x.size(); ++j) {
-          ROS_DEBUG_STREAM("" << kernel_mix_ratio_[i][j]);
-        }
+      Eigen::MatrixXd K_gain_for_shift(motor_num_, 3);
+      K_gain_for_shift.col(0) = K_.col(K_factors_index(0));
+      K_gain_for_shift.col(1) = K_.col(K_factors_index(3));
+      K_gain_for_shift.col(2) = K_.col(K_factors_index(6));
+      EigenMatrixFloat32MultiArrayPublish(K_gain_shift_pub_, K_gain_for_shift);
+
+      Eigen::MatrixXd K_mode(motor_num_, mode_num_);
+      for (int i = 0; i < mode_num_; ++i) {
+        K_mode.col(i) = K_.col(lqi_mode_*3+i*2);
       }
+      //EigenMatrixFloat32MultiArrayPublish(K_mode_shift_pub_, K_mode); TODO ONLY FOR DEBUG torsion_mode_calculator!
+
+      EigenMatrixFloat32MultiArrayPublish(B_eom_kernel_pub_, B_eom_kernel_);
+
+      Eigen::MatrixXd nlopt_alpha(K_gain_for_shift.cols(), mode_num_);
+      for (int i = 0; i < mode_num_; ++i) {
+        nlopt_alpha(0, i) = torsion_alpha_.at(0) * torsion_eigens_.at(0)/torsion_eigens_.at(i);
+        nlopt_alpha(1, i) = torsion_alpha_.at(3) * torsion_eigens_.at(0)/torsion_eigens_.at(i);
+        nlopt_alpha(2, i) = torsion_alpha_.at(6) * torsion_eigens_.at(0)/torsion_eigens_.at(i);
+      }
+      EigenMatrixFloat32MultiArrayPublish(nlopt_alpha_pub_, nlopt_alpha);
     }
     nlopt_throttle_count_++;
 
@@ -495,13 +452,10 @@ void HydrusTiltedLQITorsionModeController::rosParamInit()
   lqi_nh.getParam("q_mu", q_mu_);
   lqi_nh.getParam("q_mu_d", q_mu_d_);
 
+  ros::NodeHandle gain_shift_nh(control_nh, "gain_shift");
   getParam<bool>(lqi_nh, "use_torsion_null_space_shift", is_use_torsion_null_space_shift_, true);
-  getParam<bool>(lqi_nh, "nlopt_use_global", is_nlopt_use_global_, false);
-  getParam<double>(lqi_nh, "nlopt_xtol_rel", nlopt_xtol_rel_, 1e-4);
-  getParam<double>(lqi_nh, "null_space_shift_thresh", null_space_shift_thresh_, 0.7);
-  getParam<double>(lqi_nh, "null_space_shift_limit_ratio", null_space_shift_limit_ratio_, 0.7);
-  getParam<double>(lqi_nh, "null_space_shift_mix_limit", null_space_shift_mix_limit_, 0.7);
-  getParam<int>(lqi_nh, "null_space_shift_max_eval", null_space_shift_max_eval_, 1000);
+  getParam<double>(gain_shift_nh, "null_space_shift_thresh", null_space_shift_thresh_, 0.7);
+  getParam<double>(gain_shift_nh, "null_space_shift_mix_limit", null_space_shift_mix_limit_, 0.7);
   getParam<int>(lqi_nh, "nlopt_throttle_factor", nlopt_throttle_factor_, 1);
   double torsion_alpha_rp_p;
   double torsion_alpha_rp_i;
@@ -623,18 +577,6 @@ void HydrusTiltedLQITorsionModeController::cfgLQITorsionCallback(hydrus::LQI_tor
         torsion_alpha_[8] = config.torsion_alpha_y_d;
         printf("change the gain of lqi torsion alpha const for yaw d: %f\n", config.torsion_alpha_y_d);
         break;
-      case LQI_TORSION_NULL_SPACE_SHIFT_THREASH:
-        null_space_shift_thresh_ = config.null_space_shift_thresh;
-        printf("change the gain of lqi torsion null space shift thresh: %f\n", config.null_space_shift_thresh);
-        break;
-      case LQI_TORSION_NULL_SPACE_SHIFT_LIMIT_RATIO:
-        null_space_shift_limit_ratio_ = config.null_space_shift_limit_ratio;
-        printf("change the gain of lqi torsion null space shift limit ratio: %f\n", config.null_space_shift_limit_ratio);
-        break;
-      case LQI_TORSION_NULL_SPACE_SHIFT_MIX_LIMIT:
-        null_space_shift_mix_limit_ = config.null_space_shift_mix_limit;
-        printf("change the gain of lqi torsion null space shift mix limit: %f\n", config.null_space_shift_mix_limit);
-        break;
       default:
         printf("\n");
         break;
@@ -714,6 +656,45 @@ bool HydrusTiltedLQITorsionModeController::setQMuDCallback(aerial_robot_msgs::Se
   res.success = true;
   return true;
 }
+
+void HydrusTiltedLQITorsionModeController::kernelMixRatioCallback(const std_msgs::Float32MultiArrayConstPtr& msg) {
+  Eigen::MatrixXd mat(msg->layout.dim[0].size, msg->layout.dim[1].size);
+  for(int i = 0; i<msg->layout.dim[0].stride; i++) {
+    mat(int(i/msg->layout.dim[1].stride), i%msg->layout.dim[1].stride) = msg->data[i];
+  }
+
+  for (int i = 0; i < 3; ++i) {
+    for (int j = 0; j < B_eom_kernel_.cols(); ++j) {
+      kernel_mix_ratio_[3*i][j] = mat(i, j); // p
+      kernel_mix_ratio_[3*i+1][j] = -mat(i, j); // i
+      kernel_mix_ratio_[3*i+2][j] = mat(i, j); // d
+    }
+  }
+}
+
+void HydrusTiltedLQITorsionModeController::EigenMatrixFloat32MultiArrayPublish(const ros::Publisher& pub, const Eigen::MatrixXd& mat)
+{
+  std_msgs::Float32MultiArray msg;
+  msg.data.clear();
+  msg.data.resize(mat.cols() * mat.rows());
+  msg.layout.data_offset = 0;
+  msg.layout.dim.resize(2);
+  msg.layout.dim[0].label = "row";
+  msg.layout.dim[0].size = mat.rows();
+  msg.layout.dim[0].stride = mat.cols() * mat.rows();
+  msg.layout.dim[1].label = "column";
+  msg.layout.dim[1].size = mat.cols();
+  msg.layout.dim[1].stride = mat.cols();
+
+  for (int i = 0; i < mat.rows(); ++i) {
+    for (int j = 0; j < mat.cols(); ++j) {
+      msg.data[i*msg.layout.dim[1].stride + j] = mat(i,j);
+    }
+  }
+
+  pub.publish(msg);
+}
+
 
 /* plugin registration */
 #include <pluginlib/class_list_macros.h>

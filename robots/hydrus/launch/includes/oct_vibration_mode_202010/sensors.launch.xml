@@ -51,6 +51,7 @@
 
     <node pkg="hydrus" type="torsion_mode_calculator" name="torsion_mode_calculator" output="screen">
       <param name="robot_description_control" command="$(find xacro)/xacro.py '$(arg robot_model)' robot_name:=$(arg robot_ns) links:=$(arg links) sim:=true fix_rotor:=1 root_on_fc:=false"/>
+      <param name="robot_ns" type="str" value="$(arg robot_ns)" />
       <param name="root_on_fc" type="bool" value="false"/>
       <param name="floating" type="bool" value="true"/>
       <param name="rate" type="int" value="30"/>
@@ -60,6 +61,13 @@
       <param name="m_f_rate" type="double" value="0.0172"/>
       <param name="rotor_num" type="int" value="$(arg links)"/>
       <param name="use_rbdl_torsion_b" type="bool" value="false"/>
+      <param name="is_publish_lqr_gain" type="bool" value="true"/>
+      <param name="q_mu" type="double" value="1.0"/>
+      <param name="q_mu_d" type="double" value="1.0"/>
+    </node>
+
+    <node pkg="hydrus" type="null_space_shifter" name="null_space_shifter" output="screen">
+      <param name="rate" type="int" value="1"/>
     </node>
 
   </group>

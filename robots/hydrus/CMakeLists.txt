@@ -41,6 +41,7 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 generate_dynamic_reconfigure_options(
   cfg/LQI.cfg
   cfg/LQI_torsion.cfg
+  cfg/torsionNullSpaceShifter.cfg
   cfg/torsion_mode.cfg)
 
 catkin_package(
@@ -92,6 +93,9 @@ target_link_libraries(rbdl_util ${RBDL_LIBRARY} ${RBDL_URDFReader_LIBRARY})
 
 add_executable(torsion_mode_calculator src/torsion_mode_calculator.cpp)
 target_link_libraries(torsion_mode_calculator ${catkin_LIBRARIES} ${RBDL_LIBRARY} ${RBDL_URDFReader_LIBRARY} rbdl_util)
+
+add_executable(null_space_shifter src/null_space_shifter.cpp)
+target_link_libraries(null_space_shifter ${catkin_LIBRARIES} ${EIGEN3_LIBRARIES} ${NLOPT_LIBRARIES})
 
 add_library(hydrus_robot_model
   src/hydrus_robot_model.cpp

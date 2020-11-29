@@ -1,22 +1,27 @@
 #include<hydrus/torsion_mode_calculator.h>
 
 TorsionModeCalculator::TorsionModeCalculator(ros::NodeHandle nh, ros::NodeHandle nhp)
-:nh_(nh), nhp_(nhp)
+:nh_(nh), nhp_(nhp), tfListener_(tfBuffer_)
 {
   // ros param init
   // urdf model of hydrus
   std::string control_model_urdf;
   nhp_.getParam("robot_description_control", control_model_urdf);
+  nhp_.param<std::string>("robot_ns", robot_ns_, "hydrus");
   nhp_.param<bool>("floating", is_floating_, true);
   nhp_.param<bool>("root_on_fc", is_root_on_fc_, false);
   nhp_.param<int>("rotor_num", rotor_num_, 6);
   nhp_.param<int>("torsion_num", torsion_num_, rotor_num_-1);
   nhp_.param<double>("torsion_constant", torsion_constant_, 1.0);
   nhp_.param<double>("eigen_eps", eigen_eps_, 1e-5);
-  nhp_.param<int>("mode_num", mode_num_, rotor_num_-4); // TODO consider the used up dofs!!
+  nhp_.param<int>("mode_num", mode_num_, rotor_num_-4);
   nhp_.param<double>("m_f_rate", m_f_rate_, -0.0172);
   nhp_.param<int>("link1_rotor_direction", link1_rotor_direction_, -1);
   nhp_.param<bool>("use_rbdl_torsion_b", is_use_rbdl_torsion_B_, true);
+
+  nhp_.param<bool>("is_publish_lqr_gain", is_publish_lqr_gain_, false);
+  nhp_.param<double>("q_mu", q_mu_, 1.0);
+  nhp_.param<double>("q_mu_d", q_mu_d_, 1.0);
 
   torsions_.resize(torsion_num_);
   torsions_d_.resize(torsion_num_);
@@ -49,15 +54,17 @@ TorsionModeCalculator::TorsionModeCalculator(ros::NodeHandle nh, ros::NodeHandle
   joint_sub_ = nh.subscribe<sensor_msgs::JointState>("joint_states", 1, &TorsionModeCalculator::jointsCallback, this);
 
   // ros publishers
+  // TODO refactor!
   eigen_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("torsion_eigens", 100);
   if (is_use_rbdl_torsion_B_) {
     B_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("torsion_B_matrix", 100);
     B_mode_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("torsion_B_mode_matrix", 100);
   }
-  B_trans_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("torsion_B_trans_matrix", 100);
-  B_rot_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("torsion_B_rot_matrix", 100);
   mode_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("torsion_mode_matrix", 100);
   K_sys_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("torsion_K_sys_matrix", 100);
+  if (is_publish_lqr_gain_) {
+    K_lqr_mode_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("K_mode", 1);
+  }
 
   // dynamic reconfigure
   reconf_server_ = new dynamic_reconfigure::Server<hydrus::torsion_modeConfig>(nhp_);
@@ -78,6 +85,14 @@ void TorsionModeCalculator::cfgCallback(hydrus::torsion_modeConfig &config, uint
       case TORSION_CONSTANT:
         torsion_constant_ = config.torsion_constant;
         printf("change parameter of torsion constant: %f\n", torsion_constant_);
+        break;
+      case TORSION_Q_MU:
+        q_mu_ = config.q_mu;
+        printf("change parameter of q_mu: %f\n", q_mu_);
+        break;
+      case TORSION_Q_MU_D:
+        q_mu_d_ = config.q_mu_d;
+        printf("change parameter of q_mu_d: %f\n", q_mu_d_);
         break;
       default :
         printf("\n");
@@ -100,7 +115,7 @@ void TorsionModeCalculator::jointsCallback(const sensor_msgs::JointStateConstPtr
 
 void TorsionModeCalculator::calculate() {
 
-  int q_joint_bias = is_floating_ ? 6 : 0; // TODO hardcoding!
+  int q_joint_bias = is_floating_ ? 6 : 0;
 
   VectorNd Q = VectorNd::Zero (model_->q_size);
   VectorNd QDot = VectorNd::Zero (model_->qdot_size);
@@ -203,6 +218,7 @@ void TorsionModeCalculator::calculate() {
   // select largest modes
   MatrixNd A_selected = MatrixNd::Zero(q_joint_bias/2+mode_num_, q_joint_bias/2+mode_num_);
   MatrixNd B_selected = MatrixNd::Zero(q_joint_bias/2+mode_num_, rotor_num_);
+  MatrixNd torsion_mode_selected  = MatrixNd::Zero(mode_num_, torsion_num_);
   std::vector<std::pair<double, int>> sorted_mode_eigen_idx_pair;
   for (int i = 0; i < es.eigenvalues().size(); ++i) {
     double eig_v = es.eigenvalues()(i).real();
@@ -227,13 +243,81 @@ void TorsionModeCalculator::calculate() {
     A_selected.block(0,0,q_joint_bias/2,q_joint_bias/2) = A_full_diag.block(0,0,q_joint_bias/2,q_joint_bias/2);
     B_selected.block(0,0,q_joint_bias/2,rotor_num_) = B_full_diag.block(0,0,q_joint_bias/2,rotor_num_);
   }
+  for (int i = 0; i < mode_num_; ++i) {
+    for (int j = 0; j < torsion_num_; ++j) {
+      torsion_mode_selected(i, j) = P(j, sorted_mode_eigen_idx_pair[i].second);
+    }
+  }
 
   ROS_DEBUG_STREAM("A mode selected: "<<std::endl << A_selected);
   ROS_DEBUG_STREAM("B mode selected: " <<std::endl<< B_selected);
 
+  // calculate LQR feedback gain for modes
+  if (is_publish_lqr_gain_) {
+    Eigen::MatrixXd A_tor = Eigen::MatrixXd::Zero(mode_num_*2, mode_num_*2);
+    Eigen::MatrixXd B_tor = Eigen::MatrixXd::Zero(mode_num_*2, rotor_num_);
+    Eigen::MatrixXd C_tor = Eigen::MatrixXd::Zero(mode_num_, mode_num_*2);
+
+    bool use_torsion_b = !is_use_rbdl_torsion_B_;
+    Eigen::MatrixXd B_torsion_tmp = Eigen::MatrixXd::Zero(torsion_num_, rotor_num_);
+    if (!is_use_rbdl_torsion_B_) {
+      for (int i = 0; i < torsion_num_; ++i) {
+        for (int j = 0; j < rotor_num_; ++j) {
+          geometry_msgs::TransformStamped transformStamped;
+          try{
+            transformStamped = tfBuffer_.lookupTransform(robot_ns_+"/thrust"+std::to_string(j+1), robot_ns_+"/thrust"+std::to_string(i+1),
+                ros::Time(0));
+            double moment_arm_length = transformStamped.transform.translation.y;
+            B_torsion_tmp(i,j) = -moment_arm_length;
+          }
+          catch (tf2::TransformException &ex) {
+            ROS_WARN_THROTTLE(1, "%s",ex.what());
+            use_torsion_b = false;
+            break;
+          }
+        }
+      }
+    }
+    Eigen::MatrixXd torsion_B_matrix(mode_num_, rotor_num_);
+    torsion_B_matrix = torsion_mode_selected * B_torsion_tmp;
+
+    for(int i = 0; i < mode_num_; i++) {
+      A_tor(2*i, 2*i+1) = 1;
+      A_tor(2*i+1, 2*i) = sorted_mode_eigen_idx_pair[i].first;
+      if (use_torsion_b) {
+        B_tor.row(2*i+1) = torsion_B_matrix.row(i);
+      } else {
+        B_tor.row(2*i+1) = B_selected.row(i);
+      }
+      C_tor(i, 2*i) = 1;
+    }
+    Eigen::VectorXd q_diagonals(mode_num_*2);
+    for (int i = 0; i < mode_num_; ++i) {
+      q_diagonals(2*i) = q_mu_;
+      q_diagonals(2*i+1) = q_mu_d_;
+    }
+    Eigen::MatrixXd Q_tor = q_diagonals.asDiagonal();
+    Eigen::MatrixXd R_tor = Eigen::MatrixXd::Identity(rotor_num_, rotor_num_);
+
+    Eigen::MatrixXd K_lqr_gain = Eigen::MatrixXd::Identity(rotor_num_, mode_num_);
+    bool use_kleinman_method = false;
+    if(!control_utils::care(A_tor, B_tor, R_tor, Q_tor, K_lqr_gain, use_kleinman_method)) {
+      ROS_ERROR_STREAM("error in solver of continuous-time algebraic riccati equation");
+    }
+    ROS_DEBUG_STREAM("LQI torsion gain:  K_lqr_gain \n" <<  K_lqr_gain);
+
+    Eigen::MatrixXd K_lqr_mode_gain(rotor_num_, mode_num_);
+    for (int i = 0; i < mode_num_; ++i) {
+      K_lqr_mode_gain.col(i) = K_lqr_gain.col(2*i);
+    }
+    EigenMatrixFloat32MultiArrayPublish(K_lqr_mode_pub_, K_lqr_mode_gain);
+  }
+
   // publish results
-  std_msgs::Float32MultiArray eigen_msg, B_msg, mode_msg, B_rot_msg, K_sys_msg, B_org_msg;
+  std_msgs::Float32MultiArray eigen_msg, B_msg, mode_msg, K_sys_msg, B_org_msg;
   eigen_msg.data.clear(); B_msg.data.clear(); mode_msg.data.clear(); K_sys_msg.data.clear(); B_org_msg.data.clear();
+  eigen_msg.layout.data_offset=0; eigen_msg.layout.dim.resize(1);
+  eigen_msg.layout.dim[0].label="vector"; eigen_msg.layout.dim[0].size = mode_num_; eigen_msg.layout.dim[0].stride = mode_num_;
   for (int i = 0; i < mode_num_; ++i) {
     eigen_msg.data.push_back(sorted_mode_eigen_idx_pair[i].first);
     for (int j = 0; j < torsion_num_; ++j) {
@@ -262,18 +346,29 @@ void TorsionModeCalculator::calculate() {
     B_pub_.publish(B_org_msg);
     B_mode_pub_.publish(B_msg);
   }
+}
 
-  if (is_floating_) {
-    for (int i = 0; i < q_joint_bias/2; ++i) {
-      for (int j = 0; j < B_selected.cols(); ++j) {
-        B_rot_msg.data.push_back(B_selected(i,j));
-      }
+void TorsionModeCalculator::EigenMatrixFloat32MultiArrayPublish(const ros::Publisher& pub, const Eigen::MatrixXd& mat)
+{
+  std_msgs::Float32MultiArray msg;
+  msg.data.clear();
+  msg.data.resize(mat.cols() * mat.rows());
+  msg.layout.data_offset = 0;
+  msg.layout.dim.resize(2);
+  msg.layout.dim[0].label = "row";
+  msg.layout.dim[0].size = mat.rows();
+  msg.layout.dim[0].stride = mat.cols() * mat.rows();
+  msg.layout.dim[1].label = "column";
+  msg.layout.dim[1].size = mat.cols();
+  msg.layout.dim[1].stride = mat.cols();
+
+  for (int i = 0; i < mat.rows(); ++i) {
+    for (int j = 0; j < mat.cols(); ++j) {
+      msg.data[i*msg.layout.dim[1].stride + j] = mat(i,j);
     }
-    B_rot_pub_.publish(B_rot_msg);
-
-    // TODO enable B_trans!!
   }
 
+  pub.publish(msg);
 }
 
 int main (int argc, char* argv[]) {
