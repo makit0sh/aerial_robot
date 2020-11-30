@@ -51,8 +51,7 @@
     -->
 
     <node pkg="hydrus" type="torsion_mode_calculator" name="torsion_mode_calculator" output="screen">
-      <param name="robot_description_control" command="$(find xacro)/xacro.py '$(arg robot_model)' robot_name:=$(arg robot_ns) links:=$(arg links) sim:=true fix_rotor:=1 root_on_fc:=0"/>
-      <param name="root_on_fc" type="bool" value="false"/>
+      <param name="robot_description_control" command="$(find xacro)/xacro.py '$(arg robot_model)' robot_name:=$(arg robot_ns) links:=$(arg links) sim:=true fix_rotor:=1"/>
       <param name="rate" type="int" value="30"/>
       <!-- TODO limit mode num to reduce data size -->
       <!-- <param name="mode_num" type="int" value="2"/> -->

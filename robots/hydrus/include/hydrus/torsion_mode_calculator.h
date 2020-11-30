@@ -1,8 +1,6 @@
 #ifndef TORSION_MODE_CALCULATOR
 #define TORSION_MODE_CALCULATOR
 
-#include <iostream>
-
 #include <ros/ros.h>
 #include <tf2_ros/transform_listener.h>
 #include <geometry_msgs/TransformStamped.h>
@@ -16,6 +14,7 @@
 
 #include <rbdl/addons/urdfreader/urdfreader.h>
 #include <hydrus/util/rbdl_util.h>
+#include <hydrus/util/msg_utils.h>
 #include <aerial_robot_control/control/utils/care.h>
 
 #include <Eigen/Dense>
@@ -56,7 +55,6 @@ class TorsionModeCalculator
     ros::Publisher B_mode_pub_;
     ros::Publisher B_pub_;
     ros::Publisher mode_pub_;
-    ros::Publisher K_sys_pub_;
 
     Model* model_;
     std::vector<unsigned int> torsion_dof_update_order_;
@@ -71,14 +69,12 @@ class TorsionModeCalculator
     double eigen_eps_;
     double m_f_rate_;
     int link1_rotor_direction_;
-    bool is_root_on_fc_;
     bool is_use_rbdl_torsion_B_;
 
     bool is_publish_lqr_gain_;
     double q_mu_;
     double q_mu_d_;
     ros::Publisher K_lqr_mode_pub_;
-    void EigenMatrixFloat32MultiArrayPublish(const ros::Publisher& pub, const Eigen::MatrixXd& mat);
 
     std::vector<double> torsions_;
     std::vector<double> torsions_d_;

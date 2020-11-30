@@ -5,6 +5,7 @@
 #include <std_msgs/Float32MultiArray.h>
 #include <dynamic_reconfigure/server.h>
 #include <hydrus/torsionNullSpaceShifterConfig.h>
+#include <hydrus/util/msg_utils.h>
 
 #include <Eigen/Dense>
 
@@ -58,8 +59,6 @@ class NullSpaceShifter
     void kModeCallback(const std_msgs::Float32MultiArrayConstPtr& msg);
     void bEOMKernelCallback(const std_msgs::Float32MultiArrayConstPtr& msg);
     void torsionEigensCallback(const std_msgs::Float32MultiArrayConstPtr& msg);
-
-    void EigenMatrixFloat32MultiArrayPublish(const ros::Publisher& pub, const Eigen::MatrixXd& mat);
 
     std::vector<std::vector<double>> prev_results_;
 

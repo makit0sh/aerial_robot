@@ -20,12 +20,9 @@
 
         <!-- mocap -->
         <include file="$(find aerial_robot_base)/launch/external_module/mocap.launch" />
-
-        <group if="$(arg mocap_for_torsion)">
-          <include file="$(find hydrus)/launch/includes/oct_vibration_mode_202010/mocap.launch" >
-            <arg name="throttle" value="30"/>
-	  </include>
-        </group>
+        <include file="$(find hydrus)/launch/includes/oct_vibration_shift_202011/mocap.launch" >
+          <arg name="throttle" value="30"/>
+        </include>
 
         <!-- leddar one -->
         <include file="$(find leddar_one)/launch/leddar_one.launch" >
@@ -41,31 +38,31 @@
     <rosparam file="$(find aerial_robot_base)/config/sensors/mocap.yaml" command="load" />
     <rosparam file="$(find aerial_robot_base)/config/sensors/altmeter/leddar_one.yaml" command="load" />
 
-    <include file="$(find hydrus)/launch/includes/oct_vibration_mode_202010/torsion_estimator.launch" >
-      <arg name="links" value="$(arg links)" />
-      <arg name="robot_ns" value="$(arg robot_ns)" />
-      <arg name="robot_model" value="$(arg robot_model)" />
-      <arg name="simulation" value="$(arg simulation)" />
-      <arg name="mocap_for_torsion" value="$(arg mocap_for_torsion)" />
-    </include>
+    <node pkg="hydrus" type="torsion_estimator_node" name="torsion_estimator" output="screen">
+      <param name="links" type="int" value="$(arg links)"/>
+      <param name="robot_name" value="$(arg robot_ns)"/>
+      <param name="simulation" value="$(arg simulation)"/>
+      <param name="use_mocap" value="$(arg mocap_for_torsion)"/>
+      <rosparam command="load" file="$(find hydrus)/config/oct/oct_vibration_shift_202011/TorsionEstimatorConfig.yaml" />
+    </node>
 
     <node pkg="hydrus" type="torsion_mode_calculator" name="torsion_mode_calculator" output="screen">
       <param name="robot_description_control" command="$(find xacro)/xacro.py '$(arg robot_model)' robot_name:=$(arg robot_ns) links:=$(arg links) sim:=true fix_rotor:=1"/>
       <param name="robot_ns" type="str" value="$(arg robot_ns)" />
-      <param name="rotor_num" type="int" value="$(arg links)"/>
       <param name="floating" type="bool" value="true"/>
       <param name="rate" type="int" value="30"/>
       <param name="mode_num" type="int" value="4"/>
       <param name="torsion_constant" type="double" value="60.0"/>
       <param name="m_f_rate" type="double" value="0.0172"/>
+      <param name="rotor_num" type="int" value="$(arg links)"/>
       <param name="use_rbdl_torsion_b" type="bool" value="false"/>
       <param name="is_publish_lqr_gain" type="bool" value="true"/>
-      <param name="q_mu" type="double" value="1.0"/>
-      <param name="q_mu_d" type="double" value="1.0"/>
+      <param name="q_mu" type="double" value="10.0"/>
+      <param name="q_mu_d" type="double" value="0.01"/>
     </node>
 
     <node pkg="hydrus" type="null_space_shifter" name="null_space_shifter" output="screen">
-      <param name="rate" type="int" value="1"/>
+      <param name="rate" type="int" value="10"/>
     </node>
 
   </group>

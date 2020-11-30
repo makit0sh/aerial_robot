@@ -108,6 +108,7 @@ add_library(hydrus_controller_pluginlib
   src/hydrus_lqi_torsion_suppression_controller.cpp
   src/hydrus_tilted_lqi_torsion_suppression_controller.cpp
   src/hydrus_tilted_lqi_torsion_mode_controller.cpp
+  src/hydrus_tilted_lqi_torsion_shift_controller.cpp
   src/hydrus_tilted_lqi_controller.cpp)
 target_link_libraries(hydrus_controller_pluginlib hydrus_robot_model 
   ${catkin_LIBRARIES} ${EIGEN3_LIBRARIES}
@@ -116,20 +117,8 @@ target_link_libraries(hydrus_controller_pluginlib hydrus_robot_model
   )
 add_dependencies(hydrus_controller_pluginlib aerial_robot_msgs_generate_messages_cpp spinal_generate_messages_cpp ${PROJECT_NAME}_gencfg)
 
-# add_library(kalman INTERFACE)
-# target_include_directories(kalman INTERFACE
-#   include/kalman
-# )
-
-find_package(Armadillo REQUIRED)
-add_library(kalman_filters INTERFACE)
-target_include_directories(kalman_filters INTERFACE
-  include/kalman_filters
-)
-
 add_library(torsion_estimator src/torsion_estimator.cpp)
 target_link_libraries(torsion_estimator
-  kalman_filters ${ARMADILLO_LIBRARIES}
   ${RBDL_LIBRARY} ${RBDL_URDFReader_LIBRARY} rbdl_util
   ${catkin_LIBRARIES} ${EIGEN3_LIBRARIES})
 add_executable(torsion_estimator_node src/torsion_estimator_node.cpp)

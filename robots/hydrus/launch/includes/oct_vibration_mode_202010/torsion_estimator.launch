@@ -10,7 +10,7 @@
   <node pkg="hydrus" type="torsion_estimator_node" name="torsion_estimator" output="screen">
     <!-- launch-prefix="valgrind -tool=callgrind -callgrind-out-file='callgrind.torsion_estimator_node.%p' " -->
     <!-- launch-prefix="xterm -g 200x60 -fa 'Liberation Mono:pixelsize=20:antialias=false:autohint=false' -e gdb -ex run -args" -->
-    <param name="robot_description_control" command="$(find xacro)/xacro.py '$(arg robot_model)' robot_name:=$(arg robot_ns) links:=$(arg links) sim:=true fix_rotor:=1 root_on_fc:=false"/>
+    <param name="robot_description_control" command="$(find xacro)/xacro.py '$(arg robot_model)' robot_name:=$(arg robot_ns) links:=$(arg links) sim:=true fix_rotor:=1"/>
     <param name="links" type="int" value="$(arg links)"/>
     <param name="robot_name" value="$(arg robot_ns)"/>
     <param name="simulation" value="$(arg simulation)"/>

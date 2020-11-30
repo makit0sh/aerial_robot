@@ -25,9 +25,8 @@ namespace
     }
 
     for (int i = 0; i < K_mode.cols(); ++i) {
-      double K_torsion_norm = K_mode.col(i).norm();
-      double K_corr = gain.dot( K_mode.col(i) ) / gain.norm() / K_torsion_norm;
-      torsion_factor -= nlopt_alpha * K_torsion_norm * K_corr*K_corr * torsion_eigens[0]/torsion_eigens[i];
+      double K_corr = gain.dot( K_mode.col(i) ) / gain.norm() / K_mode.col(i).norm();
+      torsion_factor -= nlopt_alpha * K_corr*K_corr * torsion_eigens[0]/torsion_eigens[i];
     }
 
     for (int i = 0; i < motor_num; ++i) {
@@ -107,37 +106,26 @@ void NullSpaceShifter::cfgCallback(hydrus::torsionNullSpaceShifterConfig& config
 }
 
 void NullSpaceShifter::kGainCallback(const std_msgs::Float32MultiArrayConstPtr& msg) {
-  K_gain_.resize(msg->layout.dim[0].size, msg->layout.dim[1].size);
-  for(int i = 0; i<msg->layout.dim[0].stride; i++) {
-    K_gain_(int(i/msg->layout.dim[1].stride), i%msg->layout.dim[1].stride) = msg->data[i];
-  }
+  K_gain_ = msg_utils::Float32MultiArray2EigenMatrix(msg);
 }
 
 void NullSpaceShifter::kModeCallback(const std_msgs::Float32MultiArrayConstPtr& msg) {
-  K_mode_.resize(msg->layout.dim[0].size, msg->layout.dim[1].size);
-  for(int i = 0; i<msg->layout.dim[0].stride; i++) {
-    K_mode_(int(i/msg->layout.dim[1].stride), i%msg->layout.dim[1].stride) = msg->data[i];
-  }
+  K_mode_ = msg_utils::Float32MultiArray2EigenMatrix(msg);
 }
 
 void NullSpaceShifter::bEOMKernelCallback(const std_msgs::Float32MultiArrayConstPtr& msg) {
-  B_eom_kernel_.resize(msg->layout.dim[0].size, msg->layout.dim[1].size);
-  for(int i = 0; i<msg->layout.dim[0].stride; i++) {
-    B_eom_kernel_(int(i/msg->layout.dim[1].stride), i%msg->layout.dim[1].stride) = msg->data[i];
-  }
+  B_eom_kernel_ = msg_utils::Float32MultiArray2EigenMatrix(msg);
 }
 
 void NullSpaceShifter::torsionEigensCallback(const std_msgs::Float32MultiArrayConstPtr& msg) {
-  torsion_eigens_.resize(msg->layout.dim[0].size);
-  for(int i = 0; i<msg->layout.dim[0].stride; i++) {
-    torsion_eigens_[i] = msg->data[i];
-  }
+  torsion_eigens_ = msg_utils::Float32MultiArray2Vector(msg);
 }
 
 void NullSpaceShifter::calculate() {
 
   if (K_gain_.cols()>0 && B_eom_kernel_.cols()>0 && K_mode_.cols()>0 && K_mode_.cols()==torsion_eigens_.size()) {
     Eigen::MatrixXd kernel_mix_ratio(K_gain_.cols(), B_eom_kernel_.cols());
+    Eigen::MatrixXd kernel_mix_ratio_for_publish = Eigen::MatrixXd::Zero(K_gain_.cols(), B_eom_kernel_.cols());
     Eigen::MatrixXd K_gain_shifted = K_gain_;
 
     for (int i = 0; i < K_gain_.cols(); i++) {
@@ -182,9 +170,8 @@ void NullSpaceShifter::calculate() {
       // mix
       double original_torsion_factor = 1.0;
       for (int j = 0; j < K_mode_.cols(); ++j) {
-        double K_torsion_norm = K_mode_.col(j).norm();
-        double K_corr = K_gain_.col(i).dot( K_mode_.col(j) ) / K_gain_.col(i).norm() / K_torsion_norm;
-        original_torsion_factor -= nlopt_alpha_ * K_torsion_norm * K_corr*K_corr * torsion_eigens_[0]/torsion_eigens_[i];
+        double K_corr = K_gain_.col(i).dot( K_mode_.col(j) ) / K_gain_.col(i).norm() / K_mode_.col(j).norm();
+        original_torsion_factor -= nlopt_alpha_ * K_corr*K_corr * torsion_eigens_[0]/torsion_eigens_[i];
       }
 
       if (original_torsion_factor < null_space_shift_thresh_) {
@@ -200,6 +187,8 @@ void NullSpaceShifter::calculate() {
           K_gain_shifted.col(i) += x[j] * B_eom_kernel_.col(j) * norm_org * limit_factor;
         }
         K_gain_shifted.col(i) = K_gain_shifted.col(i) * norm_org/K_gain_shifted.col(i).norm();
+
+        kernel_mix_ratio_for_publish.row(i) = kernel_mix_ratio.row(i) *norm_org*limit_factor;
       }
     }
 
@@ -211,34 +200,10 @@ void NullSpaceShifter::calculate() {
       }
     }
 
-    EigenMatrixFloat32MultiArrayPublish(kernel_mix_ratio_pub_, kernel_mix_ratio);
-    EigenMatrixFloat32MultiArrayPublish(K_gain_shifted_pub_, K_gain_shifted);
+    kernel_mix_ratio_pub_.publish(msg_utils::EigenMatrix2Float32MultiArray(kernel_mix_ratio_for_publish));
+    K_gain_shifted_pub_.publish(msg_utils::EigenMatrix2Float32MultiArray(K_gain_shifted));
   }
 }
-
-void NullSpaceShifter::EigenMatrixFloat32MultiArrayPublish(const ros::Publisher& pub, const Eigen::MatrixXd& mat)
-{
-  std_msgs::Float32MultiArray msg;
-  msg.data.clear();
-  msg.data.resize(mat.cols() * mat.rows());
-  msg.layout.data_offset = 0;
-  msg.layout.dim.resize(2);
-  msg.layout.dim[0].label = "row";
-  msg.layout.dim[0].size = mat.rows();
-  msg.layout.dim[0].stride = mat.cols() * mat.rows();
-  msg.layout.dim[1].label = "column";
-  msg.layout.dim[1].size = mat.cols();
-  msg.layout.dim[1].stride = mat.cols();
-
-  for (int i = 0; i < mat.rows(); ++i) {
-    for (int j = 0; j < mat.cols(); ++j) {
-      msg.data[i*msg.layout.dim[1].stride + j] = mat(i,j);
-    }
-  }
-
-  pub.publish(msg);
-}
-
 
 int main (int argc, char* argv[]) {
   ros::init(argc, argv, "null_space_shifter");

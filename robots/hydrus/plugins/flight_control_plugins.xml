@@ -15,4 +15,7 @@
   <class name="aerial_robot_control/hydrus_tilted_lqi_torsion_mode_controller" type="aerial_robot_control::HydrusTiltedLQITorsionModeController" base_class_type="aerial_robot_control::ControlBase">
     <description>LQI based controller with torsion mode suppression for tilted under-actuated hydrus</description>
   </class>
+  <class name="aerial_robot_control/hydrus_tilted_lqi_torsion_shift_controller" type="aerial_robot_control::HydrusTiltedLQITorsionShiftController" base_class_type="aerial_robot_control::ControlBase">
+    <description>LQI based controller with torsion null space shift shift for tilted under-actuated hydrus</description>
+  </class>
 </library>

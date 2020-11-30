@@ -11,6 +11,7 @@
   <xacro:unless value="${vibrate==1}">
     <xacro:property name="link_inertial_pos" value="0.5"/>
   </xacro:unless>
+  <xacro:property name="link_half_mass_for_dummy" value="0.3"/>
 
     <xacro:if value="${old_version == 1}">
       <!-- link -->
@@ -19,7 +20,7 @@
         <xacro:if value="${self == 1}">
           <inertial>
             <origin xyz="${link_length* link_inertial_pos + 0.055120} 0.0 0.011580" rpy="0 0 0"/>
-            <mass value="${0.566650-0.3*vibrate}"/>
+            <mass value="${0.566650-link_half_mass_for_dummy*vibrate}"/>
             <inertia
                 ixx="0.001804" iyy="0.017972" izz="0.019248"
                 ixy="0.000021" ixz="0.000372" iyz="0.000000"/>
@@ -33,7 +34,7 @@
           <xacro:if value="${self == links}">
             <inertial>
               <origin xyz="${link_length * link_inertial_pos + -0.013450} 0.0 0.012830" rpy="0 0 0"/>
-              <mass value="${0.495530-0.3*vibrate}"/>
+              <mass value="${0.495530-link_half_mass_for_dummy*vibrate}"/>
               <inertia
                   ixx="0.001758" iyy="0.013619" izz="0.014910"
                   ixy="0.000020" ixz="-0.000076" iyz="0.000000"/>
@@ -45,7 +46,7 @@
             <!-- general -->
             <inertial>
               <origin xyz="${link_length * link_inertial_pos + 0.038190} 0.0 0.010950" rpy="0 0 0"/>
-              <mass value="${0.597720-0.3*vibrate}"/>
+              <mass value="${0.597720-link_half_mass_for_dummy*vibrate}"/>
               <inertia
                   ixx="0.001828" iyy="0.021127" izz="0.022388"
                   ixy="0.000021" ixz="0.000260" iyz="0.000000"/>
@@ -74,7 +75,7 @@
           <xacro:unless value="${tilt_mode == 1}">
             <inertial>
               <origin xyz="${link_length* link_inertial_pos + 0.057} 0.0 0.018" rpy="0 0 0"/>
-              <mass value="${0.58712-0.3*vibrate}"/>
+              <mass value="${0.58712-link_half_mass_for_dummy*vibrate}"/>
               <inertia
                   ixx="0.00179" iyy="0.01605" izz="0.01714"
                   ixy="0.00000" ixz="0.00067" iyz="0.00000"/>
@@ -90,7 +91,7 @@
             <xacro:if value="${tilt_mode == 1}">
               <inertial>
                 <origin xyz="${link_length* link_inertial_pos - 0.0576} 0.0 0.0258" rpy="0 0 0"/>
-                <mass value="${0.616-0.3*vibrate}"/>
+                <mass value="${0.616-link_half_mass_for_dummy*vibrate}"/>
                 <inertia
                     ixx="0.002" iyy="0.0161" izz="0.016992"
                     ixy="0.00000" ixz="0.00000" iyz="0.00000"/>
@@ -99,7 +100,7 @@
             <xacro:unless value="${tilt_mode == 1}">
               <inertial>
                 <origin xyz="${link_length * link_inertial_pos -0.058} 0.0 0.0188" rpy="0 0 0"/>
-                <mass value="${0.590-0.3*vibrate}"/> <!-- +DCDC -->
+                <mass value="${0.590-link_half_mass_for_dummy*vibrate}"/> <!-- +DCDC -->
                 <inertia
                     ixx="0.00179" iyy="0.01581" izz="0.01692"
                     ixy="0.00000" ixz="-0.00067" iyz="0.00000"/>
@@ -115,7 +116,7 @@
               <xacro:if value="${tilt_mode == 1}">
                 <inertial>
                   <origin xyz="${link_length* link_inertial_pos - 0.0005} 0.0 0.0204" rpy="0 0 0"/>
-                  <mass value="${0.58312-0.3*vibrate}"/>
+                  <mass value="${0.58312-link_half_mass_for_dummy*vibrate}"/>
                   <inertia
                       ixx="0.002" iyy="0.01752" izz="0.018447"
                       ixy="0.00000" ixz="0.00000" iyz="0.00000"/>
@@ -124,7 +125,7 @@
               <xacro:unless value="${tilt_mode == 1}">
                 <inertial>
                   <origin xyz="${link_length * link_inertial_pos} 0.0 0.01287" rpy="0 0 0"/>
-                  <mass value="${0.55744-0.3*vibrate}"/>
+                  <mass value="${0.55744-link_half_mass_for_dummy*vibrate}"/>
                   <inertia
                       ixx="0.00171" iyy="0.01727" izz="0.01844"
                       ixy="0.00000" ixz="0.00001" iyz="0.00000"/>
@@ -137,7 +138,7 @@
               <xacro:if value="${tilt_mode == 1}">
                 <inertial>
                   <origin xyz="${link_length* link_inertial_pos - 0.03} 0.0 0.025" rpy="0 0 0"/>
-                  <mass value="${0.66183-0.3*vibrate}"/>
+                  <mass value="${0.66183-link_half_mass_for_dummy*vibrate}"/>
                   <inertia
                       ixx="0.002" iyy="0.021851" izz="0.022718"
                       ixy="0.00000" ixz="0.00000" iyz="0.00000"/>
@@ -146,7 +147,7 @@
               <xacro:unless value="${tilt_mode == 1}">
                 <inertial>
                   <origin xyz="${link_length * link_inertial_pos - 0.0317} 0.0 0.01836" rpy="0 0 0"/>
-                  <mass value="${0.63453-0.3*vibrate}"/>
+                  <mass value="${0.63453-link_half_mass_for_dummy*vibrate}"/>
                   <inertia
                       ixx="0.00182" iyy="0.02232" izz="0.02254"
                       ixy="0.00000" ixz="-0.00077" iyz="0.00000"/>
@@ -268,7 +269,7 @@
         <link name="torsion_dummy${self}">
           <inertial>
             <origin xyz="${link_length*0.25} 0 0.012" rpy="0 0 0"/>
-            <mass value="0.3"/>
+            <mass value="${link_half_mass_for_dummy}"/>
             <inertia
                 ixx="0.001828" iyy="0.021127" izz="0.022388"
                 ixy="0.000021" ixz="0.000260" iyz="0.000000"/>

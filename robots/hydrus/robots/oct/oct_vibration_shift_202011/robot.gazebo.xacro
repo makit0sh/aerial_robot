@@ -8,7 +8,7 @@
   <xacro:arg name="fix_rotor" default="0"/>
 
   <!-- robot urdf -->
-  <xacro:include filename="$(find hydrus)/robots/oct/oct_vibration_mode_202010/robot.urdf.xacro" />
+  <xacro:include filename="$(find hydrus)/robots/oct/oct_vibration_shift_202011/robot.urdf.xacro" />
 
   <!-- gazebo plugin for default controller and sensors -->
   <xacro:include filename="$(find aerial_robot_simulation)/xacro/spinal.gazebo.xacro" />
