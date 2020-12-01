@@ -46,7 +46,7 @@ def main():
 
     k_gain_topic_name = rospy.get_param("~k_gain_topic_name", "/hydrus/K_gain_for_shift")
     k_gain_data = rospy.wait_for_message(k_gain_topic_name, Float32MultiArray)
-    k_gain_matrix = np.array(k_gain_data.data).reshape(link_num, 3) # TODO
+    k_gain_matrix = np.array(k_gain_data.data).reshape(k_gain_data.layout.dim[0].size, k_gain_data.layout.dim[1].size)
     print("k gain matrix")
     print(k_gain_matrix)
 
@@ -84,15 +84,18 @@ def main():
 
     # figure 1
     fig_cm_name = 'seismic'
-    fig, axs = plt.subplots(4, max(3, torsion_num, kernel_matrix.shape[1]), figsize=(30.0, 10.0))
+    fig, axs = plt.subplots(4, max(k_gain_matrix.shape[1], torsion_num, kernel_matrix.shape[1]), figsize=(30.0, 10.0))
     rows = ['LQI Gain', 'LQI Torsion Gain', 'Shifted Gain', 'Kernel Gain']
     for ax, row in zip(axs[:,0], rows):
         ax.set_title(row)
 
     ## k lqi
     j = 0
-    k_gain_titles = ["roll", "pitch", "yaw"]
-    for i in range(3):
+    if k_gain_matrix.shape[1] == 3:
+        k_gain_titles = ["roll", "pitch", "yaw"]
+    elif k_gain_matrix.shape[1] == 6:
+        k_gain_titles = ["x", "y", "z", "roll", "pitch", "yaw"]
+    for i in range(k_gain_matrix.shape[1]):
         ax = axs[0, j]
         j+=1
         gain = k_gain_matrix[:,i]

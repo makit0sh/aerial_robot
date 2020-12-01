@@ -37,15 +37,18 @@
 
 #include <hydrus/hydrus_tilted_lqi_controller.h>
 #include <hydrus/util/msg_utils.h>
+#include <spinal/FourAxisCommand.h>
+#include <spinal/DesireCoord.h>
+#include <spinal/RollPitchYawTerms.h>
 #include <std_msgs/Float32MultiArray.h>
 
 namespace aerial_robot_control
 {
-  class HydrusTiltedLQITorsionShiftController: public HydrusTiltedLQIController
+  class HydrusTiltedFullyActuatedTorsionShiftController: public HydrusTiltedLQIController
   {
   public:
-    HydrusTiltedLQITorsionShiftController() {}
-    virtual ~HydrusTiltedLQITorsionShiftController() = default;
+    HydrusTiltedFullyActuatedTorsionShiftController() {}
+    virtual ~HydrusTiltedFullyActuatedTorsionShiftController() = default;
 
     void initialize(ros::NodeHandle nh, ros::NodeHandle nhp,
                     boost::shared_ptr<aerial_robot_model::RobotModel> robot_model,
@@ -54,12 +57,15 @@ namespace aerial_robot_control
                     double ctrl_loop_rate);
 
   protected:
+    void controlCore() override;
     bool optimalGain() override;
     void publishGain() override;
-    void rosParamInit() override;
 
-    double gain_shift_matrix_pub_interval_;
+    Eigen::MatrixXd q_mat_;
+    Eigen::MatrixXd q_mat_inv_;
+
     double gain_shift_matrix_pub_stamp_;
+    double gain_shift_matrix_pub_interval_;
     ros::Publisher K_gain_for_shift_pub_;
     Eigen::MatrixXd K_gain_for_shift_;
     ros::Publisher B_eom_kernel_pub_;

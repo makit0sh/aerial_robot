@@ -91,11 +91,17 @@ add_library(rbdl_util
   )
 target_link_libraries(rbdl_util ${RBDL_LIBRARY} ${RBDL_URDFReader_LIBRARY})
 
+add_library(msg_utils
+  src/util/msg_utils.cpp
+  )
+target_link_libraries(msg_utils ${catkin_LIBRARIES} ${EIGEN3_LIBRARIES})
+
 add_executable(torsion_mode_calculator src/torsion_mode_calculator.cpp)
-target_link_libraries(torsion_mode_calculator ${catkin_LIBRARIES} ${RBDL_LIBRARY} ${RBDL_URDFReader_LIBRARY} rbdl_util)
+target_link_libraries(torsion_mode_calculator ${catkin_LIBRARIES} msg_utils
+  ${RBDL_LIBRARY} ${RBDL_URDFReader_LIBRARY} rbdl_util)
 
 add_executable(null_space_shifter src/null_space_shifter.cpp)
-target_link_libraries(null_space_shifter ${catkin_LIBRARIES} ${EIGEN3_LIBRARIES} ${NLOPT_LIBRARIES})
+target_link_libraries(null_space_shifter ${catkin_LIBRARIES} ${EIGEN3_LIBRARIES} ${NLOPT_LIBRARIES} msg_utils)
 
 add_library(hydrus_robot_model
   src/hydrus_robot_model.cpp
@@ -109,18 +115,19 @@ add_library(hydrus_controller_pluginlib
   src/hydrus_tilted_lqi_torsion_suppression_controller.cpp
   src/hydrus_tilted_lqi_torsion_mode_controller.cpp
   src/hydrus_tilted_lqi_torsion_shift_controller.cpp
+  src/hydrus_tilted_fully_actuated_torsion_shift_controller.cpp
   src/hydrus_tilted_lqi_controller.cpp)
 target_link_libraries(hydrus_controller_pluginlib hydrus_robot_model 
   ${catkin_LIBRARIES} ${EIGEN3_LIBRARIES}
   ${RBDL_LIBRARY} ${RBDL_URDFReader_LIBRARY}
-  ${NLOPT_LIBRARIES}
+  ${NLOPT_LIBRARIES} msg_utils
   )
 add_dependencies(hydrus_controller_pluginlib aerial_robot_msgs_generate_messages_cpp spinal_generate_messages_cpp ${PROJECT_NAME}_gencfg)
 
 add_library(torsion_estimator src/torsion_estimator.cpp)
 target_link_libraries(torsion_estimator
   ${RBDL_LIBRARY} ${RBDL_URDFReader_LIBRARY} rbdl_util
-  ${catkin_LIBRARIES} ${EIGEN3_LIBRARIES})
+  ${catkin_LIBRARIES} ${EIGEN3_LIBRARIES} msg_utils)
 add_executable(torsion_estimator_node src/torsion_estimator_node.cpp)
 target_link_libraries(torsion_estimator_node torsion_estimator ${catkin_LIBRARIES}  ${EIGEN3_LIBRARIES})
 

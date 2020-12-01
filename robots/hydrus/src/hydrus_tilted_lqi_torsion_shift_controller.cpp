@@ -11,6 +11,7 @@ void HydrusTiltedLQITorsionShiftController::initialize(ros::NodeHandle nh,
 {
   HydrusTiltedLQIController::initialize(nh, nhp, robot_model, estimator, navigator, ctrl_loop_rate);
 
+  gain_shift_matrix_pub_stamp_ = ros::Time::now().toSec();
   K_gain_for_shift_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("K_gain_for_shift", 1);
   B_eom_kernel_pub_ = nh_.advertise<std_msgs::Float32MultiArray>("B_eom_kernel", 1);
 
@@ -76,11 +77,14 @@ bool HydrusTiltedLQITorsionShiftController::optimalGain()
   Eigen::MatrixXd K_shifted = K_;
 
   if (kernel_mix_ratio_.rows() == 3 && kernel_mix_ratio_.cols() == B_eom_kernel_.cols()) {
-    for (int i = 0; i < B_eom_kernel_.cols(); ++i) {
-      for (int j = 0; j < 3; ++j) {
-        K_shifted.col(2*j) += B_eom_kernel_.col(i) * kernel_mix_ratio_(j,i);
-        K_shifted.col(6+j) -= B_eom_kernel_.col(i) * kernel_mix_ratio_(j,i);
-        K_shifted.col(2*j+1) += B_eom_kernel_.col(i) * kernel_mix_ratio_(j,i);
+    for (int i = 0; i < 3; ++i) {
+      double norm_p = K_shifted.col(2*i).norm();
+      double norm_i = K_shifted.col(6+i).norm();
+      double norm_d = K_shifted.col(2*i+1).norm();
+      for (int j = 0; j < B_eom_kernel_.cols(); ++j) {
+        K_shifted.col(2*i) += B_eom_kernel_.col(j) * kernel_mix_ratio_(i,j);
+        K_shifted.col(6+i) -= B_eom_kernel_.col(j) * norm_i/norm_p * kernel_mix_ratio_(i,j);
+        K_shifted.col(2*i+1) += B_eom_kernel_.col(j) * norm_d/norm_p * kernel_mix_ratio_(i,j);
       }
     }
   }
@@ -101,8 +105,11 @@ void HydrusTiltedLQITorsionShiftController::publishGain()
 {
   HydrusTiltedLQIController::publishGain();
 
-  K_gain_for_shift_pub_.publish(msg_utils::EigenMatrix2Float32MultiArray(K_gain_for_shift_));
-  B_eom_kernel_pub_.publish(msg_utils::EigenMatrix2Float32MultiArray(B_eom_kernel_));
+  if (ros::Time::now().toSec() - gain_shift_matrix_pub_stamp_ > gain_shift_matrix_pub_interval_) {
+    gain_shift_matrix_pub_stamp_ = ros::Time::now().toSec();
+    K_gain_for_shift_pub_.publish(msg_utils::EigenMatrix2Float32MultiArray(K_gain_for_shift_));
+    B_eom_kernel_pub_.publish(msg_utils::EigenMatrix2Float32MultiArray(B_eom_kernel_));
+  }
 }
 
 void HydrusTiltedLQITorsionShiftController::rosParamInit()
@@ -111,6 +118,7 @@ void HydrusTiltedLQITorsionShiftController::rosParamInit()
 
   ros::NodeHandle control_nh(nh_, "controller");
   ros::NodeHandle lqi_nh(control_nh, "lqi");
+  control_nh.param("gain_shift_matrix_pub_interval", gain_shift_matrix_pub_interval_, 0.1);
 }
 
 /* plugin registration */

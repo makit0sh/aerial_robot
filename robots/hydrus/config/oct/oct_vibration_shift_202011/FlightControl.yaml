@@ -58,6 +58,8 @@ controller:
     trans_constraint_weight: 100
     att_control_weight: 1
 
+  gain_shift_matrix_pub_interval: 0.05
+
   gain_shift:
     null_space_shift_thresh: 0.9
     null_space_shift_limit_ratio: 1.0

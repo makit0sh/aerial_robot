@@ -171,7 +171,7 @@ void NullSpaceShifter::calculate() {
       double original_torsion_factor = 1.0;
       for (int j = 0; j < K_mode_.cols(); ++j) {
         double K_corr = K_gain_.col(i).dot( K_mode_.col(j) ) / K_gain_.col(i).norm() / K_mode_.col(j).norm();
-        original_torsion_factor -= nlopt_alpha_ * K_corr*K_corr * torsion_eigens_[0]/torsion_eigens_[i];
+        original_torsion_factor -= nlopt_alpha_ * K_corr*K_corr * torsion_eigens_[0]/torsion_eigens_[j];
       }
 
       if (original_torsion_factor < null_space_shift_thresh_) {
