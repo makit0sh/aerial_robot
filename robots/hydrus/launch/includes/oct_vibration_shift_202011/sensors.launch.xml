@@ -43,6 +43,7 @@
       <param name="robot_name" value="$(arg robot_ns)"/>
       <param name="simulation" value="$(arg simulation)"/>
       <param name="use_mocap" value="$(arg mocap_for_torsion)"/>
+      <param name="mocap_frame_name_suffix" value="/pose_throttled"/>
       <rosparam command="load" file="$(find hydrus)/config/oct/oct_vibration_shift_202011/TorsionEstimatorConfig.yaml" />
     </node>
 
