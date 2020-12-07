@@ -259,7 +259,7 @@ private:
   void setMRACTriggerCallback(const std_srvs::SetBool::Request& req, std_srvs::SetBool::Response& res);
   ros::ServiceServer<spinal::SetMRACParams::Request, spinal::SetMRACParams::Response, AttitudeController> mrac_params_srv_;
   void setMRACParamsCallback(const spinal::SetMRACParams::Request& req, spinal::SetMRACParams::Response& res);
-  ros::Subscriber<apinal::YawFromPC, AttitudeController> yaw_from_pc_sub_;
+  ros::Subscriber<spinal::YawFromPC, AttitudeController> yaw_from_pc_sub_;
 #endif
   void yawFromPCallback(const spinal::YawFromPC& msg);
   /* end of MRAC control */
