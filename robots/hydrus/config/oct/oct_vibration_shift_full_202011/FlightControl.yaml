@@ -2,9 +2,9 @@ aerial_robot_control_name: aerial_robot_control/hydrus_tilted_fully_actuated_tor
 
 controller:
   xy:
-    p_gain: 2.5
-    i_gain: 0.05
-    d_gain: 1.5
+    p_gain: 1.0
+    i_gain: 0.02
+    d_gain: 1.0
     limit_sum: 4.0
     limit_p: 12.0
     limit_i: 12.0
@@ -21,7 +21,7 @@ controller:
     limit_d: 25.0
 
   yaw:
-    p_gain: 8.0
+    p_gain: 10.0
     i_gain: 1.0
     d_gain: 4.0
     limit_err_p: 0.4
@@ -44,10 +44,10 @@ controller:
 
   gain_shift:
     null_space_shift_thresh: 0.9
-    null_space_shift_limit_ratio: 1.0
-    null_space_shift_mix_limit: 0.15
+    null_space_shift_limit_ratio: 0.15
+    null_space_shift_mix_limit: 1.0
     null_space_shift_max_eval: 1000
-    nlopt_use_global: false
-    nlopt_xtol_rel: 0.0001
-    nlopt_position_penalty: 0.1
-    nlopt_alpha: 0.5
+    nlopt_use_global: true
+    nlopt_xtol_rel: 0.001
+    nlopt_position_penalty: 1.0
+    nlopt_alpha: 1.0

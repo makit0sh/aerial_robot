@@ -56,6 +56,8 @@ class SpinalMRACTrigger:
                 resp = self.spinal_mrac_trigger_(True)
             except rospy.ServiceException, e:
                 print "Service call failed: %s"%e
+        elif self.flight_state_ == LAND_STATE:
+            pass
         elif self.prev_flight_state_ != self.flight_state_:
             # disable MRAC on state change
             try:
