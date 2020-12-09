@@ -58,14 +58,14 @@ controller:
     trans_constraint_weight: 100
     att_control_weight: 1
 
-  gain_shift_matrix_pub_interval: 0.05
+  gain_shift_matrix_pub_interval: 0.1
 
   gain_shift:
     null_space_shift_thresh: 0.9
     null_space_shift_limit_ratio: 0.15
     null_space_shift_mix_limit: 1.0
     null_space_shift_max_eval: 1000
-    nlopt_use_global: true
+    nlopt_use_global: false 
     nlopt_xtol_rel: 0.001
     nlopt_position_penalty: 1.0
     nlopt_alpha: 1.0

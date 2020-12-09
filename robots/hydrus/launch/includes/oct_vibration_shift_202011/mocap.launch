@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <launch>
-  <arg name="throttle" default="30" />
+  <arg name="throttle" default="15" />
 
   <node pkg="mocap_optitrack"
     type="mocap_node"

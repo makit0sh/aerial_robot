@@ -25,13 +25,10 @@
           <arg name="reset_duration" value = "0.5" />
         </include>
 -->
-	
+
         <!-- mocap -->
         <include file="$(find aerial_robot_base)/launch/external_module/mocap.launch" />
-        <include file="$(find hydrus)/launch/includes/oct_vibration_shift_202011/mocap.launch" >
-          <arg name="throttle" value="30"/>
-        </include>
-
+	
         <!-- leddar one -->
         <include file="$(find leddar_one)/launch/leddar_one.launch" >
           <arg name="port" value="/dev/leddarone" />
@@ -58,7 +55,7 @@
       <param name="simulation" value="$(arg simulation)"/>
       <param name="use_mocap" value="$(arg mocap_for_torsion)"/>
       <param name="mocap_frame_name_suffix" value="/pose_throttled"/>
-      <rosparam command="load" file="$(find hydrus)/config/oct/oct_vibration_shift_202011/TorsionEstimatorConfig.yaml" />
+      <rosparam command="load" file="$(find hydrus)/config/oct/oct_vibration_shift_202011_task3/TorsionEstimatorConfig.yaml" />
     </node>
 
     <node pkg="hydrus" type="torsion_mode_calculator" name="torsion_mode_calculator" output="screen">
@@ -81,7 +78,7 @@
     </node>
 
     <node pkg="aerial_robot_control" type="spinal_mrac_trigger.py" name="spinal_mrac_trigger" output="screen">
-      <rosparam command="load" file="$(find hydrus)/config/oct/oct_vibration_shift_202011/SpinalMRAC.yaml" />
+      <rosparam command="load" file="$(find hydrus)/config/oct/oct_vibration_shift_202011_task3/SpinalMRAC.yaml" />
     </node>
 
   </group>
