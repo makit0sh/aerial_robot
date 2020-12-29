@@ -16,7 +16,6 @@
 #include <rbdl/addons/urdfreader/urdfreader.h>
 #include <hydrus/util/rbdl_util.h>
 #include <hydrus/util/msg_utils.h>
-#include <aerial_robot_control/control/utils/care.h>
 
 #include <Eigen/Dense>
 #include <algorithm>
@@ -28,8 +27,6 @@
 #include <hydrus/torsion_modeConfig.h>
 #define RECONFITURE_TORSION_MODE_FLAG 0
 #define TORSION_CONSTANT 1
-#define TORSION_Q_MU 2
-#define TORSION_Q_MU_D 3
 
 using namespace RigidBodyDynamics;
 using namespace RigidBodyDynamics::Math;
@@ -53,9 +50,8 @@ class TorsionModeCalculator
     ros::Subscriber torsion_joint_sub_;
     // ros publishers
     ros::Publisher eigen_pub_;
-    ros::Publisher B_mode_pub_;
-    ros::Publisher B_pub_;
     ros::Publisher mode_pub_;
+    ros::Publisher K_mode_pub_;
 
     Model* model_;
     std::vector<unsigned int> torsion_dof_update_order_;
@@ -68,14 +64,6 @@ class TorsionModeCalculator
     double torsion_constant_;
     int mode_num_;
     double eigen_eps_;
-    double m_f_rate_;
-    int link1_rotor_direction_;
-    bool is_use_rbdl_torsion_B_;
-
-    bool is_publish_lqr_gain_;
-    double q_mu_;
-    double q_mu_d_;
-    ros::Publisher K_lqr_mode_pub_;
 
     std::vector<double> torsions_;
     std::vector<double> torsions_d_;

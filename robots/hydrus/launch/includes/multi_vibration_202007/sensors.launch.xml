@@ -55,8 +55,7 @@
       <param name="rate" type="int" value="30"/>
       <!-- TODO limit mode num to reduce data size -->
       <!-- <param name="mode_num" type="int" value="2"/> -->
-      <param name="torsion_constant" type="double" value="60.0"/>
-      <param name="m_f_rate" type="double" value="0.0172"/>
+      <param name="torsion_constant" type="double" value="300.0"/>
       <param name="rotor_num" type="int" value="$(arg links)"/>
     </node>
 
