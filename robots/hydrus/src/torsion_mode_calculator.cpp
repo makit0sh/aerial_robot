@@ -255,9 +255,13 @@ void TorsionModeCalculator::calculate()
         for (int j = 0; j < rotor_num_; ++j) {
           geometry_msgs::TransformStamped transformStamped;
           try{
-            transformStamped = tfBuffer_.lookupTransform(robot_ns_+"/thrust"+std::to_string(j+1), robot_ns_+"/thrust"+std::to_string(i+1),
+            transformStamped = tfBuffer_.lookupTransform(robot_ns_+"/thrust"+std::to_string(j+1), robot_ns_+"/link"+std::to_string(i+2),
                 ros::Time(0));
-            double moment_arm_length = transformStamped.transform.translation.y;
+            tf2::Quaternion quat_tf;
+            tf2::Vector3 trans_tf;
+            tf2::fromMsg(transformStamped.transform.rotation, quat_tf);
+            tf2::fromMsg(transformStamped.transform.translation, trans_tf);
+            double moment_arm_length = tf2::tf2Cross(trans_tf, tf2::quatRotate(quat_tf, tf2::Vector3(0,0,1)) ).getX();
             B_torsion_tmp(i,j) = -moment_arm_length;
           }
           catch (tf2::TransformException &ex) {
