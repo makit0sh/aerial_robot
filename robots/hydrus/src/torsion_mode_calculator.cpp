@@ -105,6 +105,7 @@ void TorsionModeCalculator::calculate()
 
   MatrixNd A = MatrixNd::Zero(q_joint_bias/2+torsion_num_, q_joint_bias/2+torsion_num_);
   MatrixNd K = MatrixNd::Zero(model_->qdot_size, model_->qdot_size);
+  MatrixNd H_torsion_inv = MatrixNd::Zero(torsion_num_, torsion_num_);
 
   for (int i = 0; i < torsion_num_; ++i) {
     K(torsion_dof_update_order_.at(i), torsion_dof_update_order_.at(i))  =-1;
@@ -114,6 +115,7 @@ void TorsionModeCalculator::calculate()
   for (int i = 0; i < torsion_num_; ++i) {
     for (int j = 0; j < torsion_num_; ++j) {
       A(q_joint_bias/2+i, q_joint_bias/2+j) = K(torsion_dof_update_order_.at(i), torsion_dof_update_order_.at(j));
+      H_torsion_inv(i,j) = H_inv(torsion_dof_update_order_.at(i), torsion_dof_update_order_.at(j));
     }
   }
   if (is_floating_) {
@@ -176,7 +178,7 @@ void TorsionModeCalculator::calculate()
 
   ROS_DEBUG_STREAM("A mode selected: "<<std::endl << A_selected);
 
-  Eigen::MatrixXd B_torsion_tmp = Eigen::MatrixXd::Zero(torsion_num_, rotor_num_);
+  Eigen::MatrixXd J_torsion = Eigen::MatrixXd::Zero(torsion_num_, rotor_num_);
   for (int i = 0; i < torsion_num_; ++i) {
     for (int j = 0; j < rotor_num_; ++j) {
       geometry_msgs::TransformStamped transformStamped;
@@ -188,7 +190,7 @@ void TorsionModeCalculator::calculate()
         tf2::fromMsg(transformStamped.transform.rotation, quat_tf);
         tf2::fromMsg(transformStamped.transform.translation, trans_tf);
         double moment_arm_length = tf2::tf2Cross(trans_tf, tf2::quatRotate(quat_tf, tf2::Vector3(0,0,1)) ).getX();
-        B_torsion_tmp(i,j) = -moment_arm_length;
+        J_torsion(i,j) = -moment_arm_length;
       }
       catch (tf2::TransformException &ex) {
         ROS_WARN_THROTTLE(1, "%s",ex.what());
@@ -197,7 +199,7 @@ void TorsionModeCalculator::calculate()
     }
   }
   Eigen::MatrixXd torsion_B_matrix(mode_num_, rotor_num_);
-  torsion_B_matrix = torsion_mode_selected * B_torsion_tmp;
+  torsion_B_matrix = torsion_mode_selected * (H_torsion_inv * J_torsion);
 
   // publish results
   K_mode_pub_.publish(msg_utils::EigenMatrix2Float32MultiArray(torsion_B_matrix.transpose()));
