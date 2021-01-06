@@ -190,7 +190,9 @@ void TorsionModeCalculator::calculate()
         tf2::fromMsg(transformStamped.transform.rotation, quat_tf);
         tf2::fromMsg(transformStamped.transform.translation, trans_tf);
         double moment_arm_length = tf2::tf2Cross(trans_tf, tf2::quatRotate(quat_tf, tf2::Vector3(0,0,1)) ).getX();
-        J_torsion(i,j) = -moment_arm_length;
+        double moment_arm_length_sgn = -1;
+        moment_arm_length_sgn = i>j ? -1 : 1;
+        J_torsion(i,j) = moment_arm_length_sgn * moment_arm_length;
       }
       catch (tf2::TransformException &ex) {
         ROS_WARN_THROTTLE(1, "%s",ex.what());

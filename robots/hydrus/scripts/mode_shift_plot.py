@@ -62,6 +62,10 @@ def main():
     print("k gain shifted matrix")
     print(k_gain_shifted_matrix)
 
+    kernel_mix_ratio_topic_name = rospy.get_param("~kernel_mix_ratio_topic_name", "/hydrus/kernel_mix_ratio")
+    kernel_mix_ratio_data = rospy.wait_for_message(kernel_mix_ratio_topic_name, Float32MultiArray)
+    kernel_mix_ratio = np.array(kernel_mix_ratio_data.data).reshape(kernel_mix_ratio_data.layout.dim[0].size, kernel_mix_ratio_data.layout.dim[1].size)
+
     thrust_x = np.zeros(link_num)
     thrust_y = np.zeros(link_num)
     joint_x = np.zeros(link_num-1)
@@ -84,10 +88,17 @@ def main():
 
     # figure 1
     fig_cm_name = 'seismic'
-    fig, axs = plt.subplots(4, max(k_gain_matrix.shape[1], torsion_num, kernel_matrix.shape[1]), figsize=(30.0, 10.0))
+    fig, axs = plt.subplots(4, max(k_gain_matrix.shape[1], torsion_num, kernel_matrix.shape[1]), figsize=(15.0, 10.0))
     rows = ['LQI Gain', 'LQI Torsion Gain', 'Shifted Gain', 'Kernel Gain']
     for ax, row in zip(axs[:,0], rows):
         ax.set_title(row)
+    for ax_row in axs:
+        for ax in ax_row:
+            ax.set_xlim(auto=True)
+            ax.set_ylim(auto=True)
+            ax.set_xmargin(0.6)
+            ax.set_ymargin(0.6)
+            ax.axis('off')
 
     ## k lqi
     j = 0
@@ -124,7 +135,7 @@ def main():
         gain = k_gain_shifted_matrix[:,i]
         ax.axis('equal')
         ax.add_collection(LineCollection(link_lines, colors='black', linewidth=2))
-        ax.set_title(k_gain_titles[i] + ", mag: " + '{:.3f}'.format(np.linalg.norm(gain)) )
+        ax.set_title(k_gain_titles[i] + "\n" + np.array2string(kernel_mix_ratio[i], precision=2) )
         ax.scatter(thrust_x, thrust_y, c=gain, s=400*np.power(abs(gain)/max(abs(gain)),1), cmap=fig_cm_name)
     ## kernel
     for i in range(kernel_matrix.shape[1]):
@@ -143,21 +154,24 @@ def main():
     # fig.tight_layout()
     plt.title("summary of gain shift \n"+str(np.array(joint_state_data.position)))
 
+    fig.savefig("/home/toshiya/Desktop/shift"+np.array2string(np.array(joint_state_data.position), precision=2)+".png")
+
 
     # figure 2
     plt.figure(2)
     for i in range(torsion_num):
         mode_eigen = mode_eigen_data.data[i]
         mode_freq = np.sqrt(-mode_eigen) /2 /np.pi
-        plt.plot(mode_matrix[i], label="mode "+str(i+1)+" , "+str(int(10*mode_freq)/10.0)+" Hz")
+        plt.plot(range(1,len(mode_matrix[i])+1), mode_matrix[i], label="mode "+str(i+1)+" , "+str(int(10*mode_freq)/10.0)+" Hz")
     plt.legend()
     np.set_printoptions(precision=2, floatmode='maxprec')
-    plt.title("shape of each mode: joint state \n"+str(np.array(joint_state_data.position)))
-    plt.xlabel("link no.")
+    #plt.title("shape of each mode: joint state \n"+str(np.array(joint_state_data.position)))
+    plt.xlabel("torsion joint no.")
     plt.ylabel("magnitude of deformation in each mode")
 
+    plt.savefig("/home/toshiya/Desktop/mode"+np.array2string(np.array(joint_state_data.position),precision=2)+".png")
 
-    plt.show()
+    #plt.show()
 
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, sig_handler)

@@ -26,7 +26,7 @@ namespace
 
     for (int i = 0; i < K_mode.cols(); ++i) {
       double K_corr = gain.dot( K_mode.col(i) ) / gain.norm() / K_mode.col(i).norm();
-      torsion_factor -= nlopt_alpha * K_corr*K_corr * torsion_eigens[0]/torsion_eigens[i];
+      torsion_factor -= nlopt_alpha * K_corr*K_corr * sqrt(torsion_eigens[0]/torsion_eigens[i]);
     }
 
     for (int i = 0; i < motor_num; ++i) {
@@ -171,8 +171,9 @@ void NullSpaceShifter::calculate() {
       double original_torsion_factor = 1.0;
       for (int j = 0; j < K_mode_.cols(); ++j) {
         double K_corr = K_gain_.col(i).dot( K_mode_.col(j) ) / K_gain_.col(i).norm() / K_mode_.col(j).norm();
-        original_torsion_factor -= nlopt_alpha_ * K_corr*K_corr * torsion_eigens_[0]/torsion_eigens_[j];
+        original_torsion_factor -= nlopt_alpha_ * K_corr*K_corr * sqrt(torsion_eigens_[0]/torsion_eigens_[j]);
       }
+      ROS_DEBUG_STREAM("factor " << i << " : " << original_torsion_factor);
 
       if (original_torsion_factor < null_space_shift_thresh_) {
         double limit_factor = 1.0;
