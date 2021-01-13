@@ -15,7 +15,7 @@
   <xacro:gazebo_spinal robot_name="$(arg robot_name)" />
 
   <xacro:if value="$(arg sim)">
-    <xacro:property name="kx" value="60" />
+    <xacro:property name="kx" value="100" />
     <gazebo>
       <!-- joint torsional spring plugin -->
       <plugin name="torsion1_torsional_spring" filename="libjoint_torsional_spring_plugin.so">

@@ -154,24 +154,19 @@ def main():
     # fig.tight_layout()
     plt.title("summary of gain shift \n"+str(np.array(joint_state_data.position)))
 
-    fig.savefig("/home/toshiya/Desktop/shift"+np.array2string(np.array(joint_state_data.position), precision=2)+".png")
-
-
     # figure 2
     plt.figure(2)
     for i in range(torsion_num):
         mode_eigen = mode_eigen_data.data[i]
         mode_freq = np.sqrt(-mode_eigen) /2 /np.pi
-        plt.plot(range(1,len(mode_matrix[i])+1), mode_matrix[i], label="mode "+str(i+1)+" , "+str(int(10*mode_freq)/10.0)+" Hz")
+        plt.plot(range(1,len(mode_matrix[i])+1), mode_matrix[i], label="mode "+str(i+1)+" , "+str(int(100*mode_freq)/100.0)+" Hz")
     plt.legend()
     np.set_printoptions(precision=2, floatmode='maxprec')
     #plt.title("shape of each mode: joint state \n"+str(np.array(joint_state_data.position)))
     plt.xlabel("torsion joint no.")
     plt.ylabel("magnitude of deformation in each mode")
 
-    plt.savefig("/home/toshiya/Desktop/mode"+np.array2string(np.array(joint_state_data.position),precision=2)+".png")
-
-    #plt.show()
+    plt.show()
 
 if __name__ == "__main__":
     signal.signal(signal.SIGINT, sig_handler)

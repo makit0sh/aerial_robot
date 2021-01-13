@@ -4,32 +4,39 @@ import sys
 import time
 import rospy
 import math
+import csv
+import rospkg
 from sensor_msgs.msg import JointState
 
 if __name__ == "__main__":
 
     rospy.init_node("hydrus_open")
+    rospack = rospkg.RosPack()
 
     link_num = rospy.get_param("~link_num", 8)
+    is_interactive = rospy.get_param("~is_interactive", False)
     duration = rospy.get_param("~duration", 30.0)
-    step = rospy.get_param("~step", 100)
-    target_position = rospy.get_param("~target_position", [0.6]*(link_num-1))
+    target_position_filename = rospy.get_param("~target_position_filename", rospack.get_path('hydrus')+"/scripts/joints_ctrl_list.csv")
 
     joint_control_topic_name = rospy.get_param("~joint_control_topic_name", "/hydrus/joints_ctrl")
     pub = rospy.Publisher(joint_control_topic_name, JointState, queue_size=1)
 
-    joint_state_topic_name = rospy.get_param("~joint_state_topic_name", "/hydrus/joint_states")
-    joint_state = rospy.wait_for_message(joint_state_topic_name, JointState)
+    joints = []
+    with open(target_position_filename) as f:
+        reader = csv.reader(f)
+        for line in reader:
+            joint = JointState()
+            for word in line:
+                joint.position.append(float(word))
+            joints.append(joint)
 
-    joint = JointState()
-    joint.position = []
-    for i in range(0, link_num - 1):
-        joint.position.append(joint_state.position[i])
-
-    for i in range(0,step+1):
-        for j in range(0, link_num - 1):
-            joint.position[j] = (i*target_position[j] + (step-i)*joint.position[j]) / step
+    rospy.sleep(rospy.Duration.from_sec(duration))
+    for joint in joints:
+        print(joint.position)
         pub.publish(joint)
-        print joint.position
-        rospy.sleep(rospy.Duration.from_sec(duration/step))
+        if is_interactive:
+            tmp = raw_input('Press Enter to proceed')
+            continue
+        else:
+            rospy.sleep(rospy.Duration.from_sec(duration))
 
